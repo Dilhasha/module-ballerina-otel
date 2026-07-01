@@ -1,0 +1,14 @@
+[package]
+org = "ballerinax"
+name = "otel_server_tests"
+version = "0.1.0"
+distribution = "2201.13.4"
+
+[build-options]
+observabilityIncluded = true
+
+[[dependency]]
+org="ballerinax"
+name="otel"
+repository="local"
+version = "@toml.version@"
