@@ -25,7 +25,8 @@ function initMetricsReporter(string protocol) returns error? {
     }
 
     externInitializeMetrics(metricsEndpoint, protocol,
-            metricsExporterHeaders, metricsResourceAttributes, metricsExportIntervalMillis, metricsPrefix);
+            metricsExporterHeaders, metricsResourceAttributes, metricsServiceName, metricsExportIntervalMillis,
+            metricsExporterTimeoutMillis, metricsPrefix);
 
     check updateMetricsSnapshot();
     _ = check task:scheduleJobRecurByFrequency(new MetricsSnapshotJob(), <decimal>metricsExportIntervalMillis / 1000.0);
@@ -51,8 +52,8 @@ function updateMetricsSnapshot() returns error? {
 }
 
 function externInitializeMetrics(string endpoint, string protocol,
-        map<string> exporterHeaders, map<string> resourceAttributes, int exportIntervalMillis,
-        string metricPrefix) = @java:Method {
+        map<string> exporterHeaders, map<string> resourceAttributes, string serviceName, int exportIntervalMillis,
+        int exporterTimeoutMillis, string metricPrefix) = @java:Method {
     'class: "io.ballerina.observe.trace.otel.OtelMetricsProvider",
     name: "initialize"
 } external;

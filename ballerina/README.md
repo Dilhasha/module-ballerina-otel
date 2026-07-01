@@ -69,7 +69,9 @@ metricsReporter = "otel"
 metricsEnabled = true
 metricsEndpoint = "http://localhost:4318/v1/metrics" # Optional Configuration. Default value is http://localhost:4318/v1/metrics
 metricsProtocol = "http"                 # Optional Configuration. Default value is http. Possible values are grpc, http
+metricsServiceName = ""                  # Optional Configuration. Default value is empty string
 metricsExportIntervalMillis = 60000      # Optional Configuration. Default value is 60000
+metricsExporterTimeoutMillis = 1000      # Optional Configuration. Default value is 1000
 metricsPrefix = ""                       # Optional Configuration. Default value is empty string
 
 [ballerina.otel.metricsExporterHeaders]  # Optional. Similar to OTEL_EXPORTER_OTLP_METRICS_HEADERS.

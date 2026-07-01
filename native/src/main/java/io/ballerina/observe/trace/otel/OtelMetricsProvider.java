@@ -71,18 +71,19 @@ public final class OtelMetricsProvider {
     public static synchronized void initialize(BString endpoint, BString protocol,
                                                BMap<BString, BString> exporterHeaders,
                                                BMap<BString, BString> resourceAttributes,
-                                               int exportIntervalMillis, BString metricPrefix) {
+                                               BString serviceName, int exportIntervalMillis,
+                                               int exporterTimeoutMillis, BString metricPrefix) {
         shutdownCurrentProvider();
         OtelMetricsProvider.metricPrefix = metricPrefix.getValue();
 
         MetricExporter exporter = buildExporter(endpoint.getValue(), protocol.getValue(),
-                exporterHeaders, exportIntervalMillis);
+                exporterHeaders, exporterTimeoutMillis);
         PeriodicMetricReader metricReader = PeriodicMetricReader.builder(exporter)
                 .setInterval(exportIntervalMillis, TimeUnit.MILLISECONDS)
                 .build();
 
         meterProvider = SdkMeterProvider.builder()
-                .setResource(Resource.create(buildResourceAttributes(resourceAttributes)))
+                .setResource(Resource.create(buildResourceAttributes(serviceName.getValue(), resourceAttributes)))
                 .registerMetricReader(metricReader)
                 .build();
         meter = meterProvider.get("otel");
@@ -138,28 +139,27 @@ public final class OtelMetricsProvider {
         return builder.build();
     }
 
-    private static Attributes buildResourceAttributes(BMap<BString, BString> resourceAttributes) {
+    private static Attributes buildResourceAttributes(String serviceName, BMap<BString, BString> resourceAttributes) {
         AttributesBuilder builder = Attributes.builder();
-        String serviceName = "ballerina-service";
+        String resolvedServiceName = serviceName;
 
         if (resourceAttributes != null && !resourceAttributes.isEmpty()) {
             for (BString key : resourceAttributes.getKeys()) {
                 BString value = resourceAttributes.get(key);
-                String attributeKey = normalizeAttributeKey(key.getValue());
                 if (value == null) {
                     continue;
                 }
+
+                String attributeKey = normalizeAttributeKey(key.getValue());
                 if ("service.name".equals(attributeKey)) {
-                    serviceName = value.getValue();
+                    resolvedServiceName = value.getValue();
                 } else {
                     builder.put(attributeKey, value.getValue());
                 }
             }
         }
 
-        builder.put(SERVICE_NAME, serviceName);
-        builder.put("telemetry.sdk.name", "ballerina-opentelemetry");
-        builder.put("telemetry.sdk.language", "ballerina");
+        builder.put(SERVICE_NAME, resolvedServiceName);
         return builder.build();
     }
 

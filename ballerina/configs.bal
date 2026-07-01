@@ -34,7 +34,9 @@ configurable string metricsEndpoint = "http://localhost:4318/v1/metrics";
 configurable string metricsProtocol = "http";
 configurable map<string> metricsExporterHeaders = {};
 configurable map<string> metricsResourceAttributes = {};
+configurable string metricsServiceName = "";
 configurable int metricsExportIntervalMillis = 60000;
+configurable int metricsExporterTimeoutMillis = 1000;
 configurable string metricsPrefix = "";
 
 function hasSupportedEndpointScheme(string endpoint) returns boolean {

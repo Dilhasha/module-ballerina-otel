@@ -26,6 +26,8 @@ import io.ballerina.runtime.api.values.BString;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.context.propagation.ContextPropagators;
+import io.opentelemetry.sdk.common.CompletableResultCode;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -34,6 +36,11 @@ import java.lang.reflect.Method;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Test class for OtelTracerProvider.
@@ -79,6 +86,19 @@ public class OtelTracerProviderTest {
         assertEquals(attributes.get(AttributeKey.stringKey("deployment.environment")), "dev");
     }
 
+    @Test
+    public void testShutdownClosesPendingExporter() throws Exception {
+        SpanExporter exporter = mock(SpanExporter.class);
+        when(exporter.shutdown()).thenReturn(CompletableResultCode.ofSuccess());
+        setStaticField("spanExporter", exporter);
+        setStaticField("tracerProvider", null);
+
+        invokeShutdownCurrentProvider();
+
+        verify(exporter, times(1)).shutdown();
+        assertNull(getStaticField("spanExporter"));
+    }
+
     @SuppressWarnings("unchecked")
     private static BMap<BString, BString> map() {
         return (BMap<BString, BString>) (BMap<?, ?>) ValueCreator.createMapValue(
@@ -95,9 +115,22 @@ public class OtelTracerProviderTest {
         field.set(null, value);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <T> T getStaticField(String fieldName) throws Exception {
+        Field field = OtelTracerProvider.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (T) field.get(null);
+    }
+
     private static Attributes invokeBuildResourceAttributes(String serviceName) throws Exception {
         Method method = OtelTracerProvider.class.getDeclaredMethod("buildResourceAttributes", String.class);
         method.setAccessible(true);
         return (Attributes) method.invoke(null, serviceName);
+    }
+
+    private static void invokeShutdownCurrentProvider() throws Exception {
+        Method method = OtelTracerProvider.class.getDeclaredMethod("shutdownCurrentProvider");
+        method.setAccessible(true);
+        method.invoke(null);
     }
 }

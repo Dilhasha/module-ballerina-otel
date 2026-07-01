@@ -109,12 +109,19 @@ public class OtelMetricsProviderTest {
         resourceAttributes.put(bString("deployment.environment"), bString("dev"));
         resourceAttributes.put(bString("\"quoted.key\""), bString("quoted-value"));
 
-        Attributes attributes = invokeBuildResourceAttributes(resourceAttributes);
+        Attributes attributes = invokeBuildResourceAttributes("runtime-service", resourceAttributes);
 
         assertEquals(attributes.get(AttributeKey.stringKey("service.name")), "orders");
         assertEquals(attributes.get(AttributeKey.stringKey("deployment.environment")), "dev");
         assertEquals(attributes.get(AttributeKey.stringKey("quoted.key")), "quoted-value");
-        assertEquals(attributes.get(AttributeKey.stringKey("telemetry.sdk.language")), "ballerina");
+        assertEquals(attributes.get(AttributeKey.stringKey("telemetry.sdk.language")), null);
+    }
+
+    @Test
+    public void testBuildResourceAttributesUsesRuntimeServiceName() throws Exception {
+        Attributes attributes = invokeBuildResourceAttributes("runtime-service", null);
+
+        assertEquals(attributes.get(AttributeKey.stringKey("service.name")), "runtime-service");
     }
 
     private static BArray metricsArray() {
@@ -168,10 +175,12 @@ public class OtelMetricsProviderTest {
         return (T) method.invoke(record);
     }
 
-    private static Attributes invokeBuildResourceAttributes(BMap<BString, Object> resourceAttributes) throws Exception {
-        Method method = OtelMetricsProvider.class.getDeclaredMethod("buildResourceAttributes", BMap.class);
+    private static Attributes invokeBuildResourceAttributes(String serviceName,
+                                                            BMap<BString, Object> resourceAttributes) throws Exception {
+        Method method = OtelMetricsProvider.class.getDeclaredMethod(
+                "buildResourceAttributes", String.class, BMap.class);
         method.setAccessible(true);
-        return (Attributes) method.invoke(null, resourceAttributes);
+        return (Attributes) method.invoke(null, serviceName, resourceAttributes);
     }
 
 }

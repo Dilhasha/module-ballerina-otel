@@ -55,6 +55,18 @@ artifactId = "opentelemetry-sdk"
 version = "1.32.0"
 
 [[platform.java21.dependency]]
+path = "./lib/opentelemetry-api-1.32.0.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-api"
+version = "1.32.0"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-context-1.32.0.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-context"
+version = "1.32.0"
+
+[[platform.java21.dependency]]
 path = "./lib/opentelemetry-api-events-1.32.0-alpha.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-api-events"

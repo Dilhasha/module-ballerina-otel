@@ -31,7 +31,6 @@ import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
-import io.opentelemetry.sdk.trace.SdkTracerProviderBuilder;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
@@ -61,8 +60,11 @@ public class OtelTracerProvider implements TracerProvider {
     private static final String SAMPLER_PARENTBASED_TRACEIDRATIO = "parentbased_traceidratio";
     private static final String SAMPLER_ALWAYS_ON = "always_on";
 
-    private static SdkTracerProviderBuilder tracerProviderBuilder;
     private static SdkTracerProvider tracerProvider;
+    private static SpanExporter spanExporter;
+    private static Sampler sampler;
+    private static int pendingExporterTimeoutMillis;
+    private static int pendingMaxExportBatchSize;
     private static BMap<BString, BString> resourceAttributes;
 
     @Override
@@ -91,7 +93,7 @@ public class OtelTracerProvider implements TracerProvider {
         boolean isHttpProtocol = PROTOCOL_HTTP.equals(protocolValue);
         String reporterEndpoint = endpoint.getValue();
 
-        // Create exporter and tracerProviderBuilder based on protocol
+        // Create exporter based on protocol. The tracer provider is built lazily when a tracer is requested.
         if (isHttpProtocol) {
             // HTTP/HTTPS transport
             var httpExporterBuilder = OtlpHttpSpanExporter.builder()
@@ -118,13 +120,7 @@ public class OtelTracerProvider implements TracerProvider {
                 finalExporter = httpExporter;
             }
 
-            // Build tracer provider with the final exporter
-            tracerProviderBuilder = SdkTracerProvider.builder()
-                    .addSpanProcessor(BatchSpanProcessor
-                            .builder(finalExporter)
-                            .setMaxExportBatchSize(maxExportBatchSize)
-                            .setExporterTimeout(exporterTimeoutMillis, TimeUnit.MILLISECONDS)
-                            .build());
+            spanExporter = finalExporter;
 
         } else {
             // gRPC transport (default)
@@ -152,17 +148,12 @@ public class OtelTracerProvider implements TracerProvider {
                 finalGrpcExporter = grpcExporter;
             }
 
-            // Build tracer provider with the final exporter
-            tracerProviderBuilder = SdkTracerProvider.builder()
-                    .addSpanProcessor(BatchSpanProcessor
-                            .builder(finalGrpcExporter)
-                            .setMaxExportBatchSize(maxExportBatchSize)
-                            .setExporterTimeout(exporterTimeoutMillis, TimeUnit.MILLISECONDS)
-                            .build());
+            spanExporter = finalGrpcExporter;
         }
 
-        // Set sampler after building tracer provider
-        tracerProviderBuilder.setSampler(selectSampler(samplerType, samplerArg));
+        sampler = selectSampler(samplerType, samplerArg);
+        pendingExporterTimeoutMillis = exporterTimeoutMillis;
+        pendingMaxExportBatchSize = maxExportBatchSize;
 
         String transportProtocol = isHttpProtocol ? "HTTP" : "gRPC";
         String tls = reporterEndpoint.startsWith(SCHEME_HTTPS) ? "S" : "";
@@ -201,13 +192,19 @@ public class OtelTracerProvider implements TracerProvider {
 
     private static synchronized Tracer getOrCreateTracer(String serviceName) {
         if (tracerProvider == null) {
-            if (tracerProviderBuilder == null) {
+            if (spanExporter == null) {
                 throw new IllegalStateException("Otel tracer provider is not initialized");
             }
-            tracerProvider = tracerProviderBuilder
+            tracerProvider = SdkTracerProvider.builder()
+                    .addSpanProcessor(BatchSpanProcessor
+                            .builder(spanExporter)
+                            .setMaxExportBatchSize(pendingMaxExportBatchSize)
+                            .setExporterTimeout(pendingExporterTimeoutMillis, TimeUnit.MILLISECONDS)
+                            .build())
+                    .setSampler(sampler)
                     .setResource(Resource.create(buildResourceAttributes(serviceName)))
                     .build();
-            tracerProviderBuilder = null;
+            spanExporter = null;
         }
         return tracerProvider.get(TRACER_NAME);
     }
@@ -247,8 +244,13 @@ public class OtelTracerProvider implements TracerProvider {
         if (tracerProvider != null) {
             tracerProvider.shutdown().join(10, TimeUnit.SECONDS);
             tracerProvider = null;
+        } else if (spanExporter != null) {
+            spanExporter.shutdown().join(10, TimeUnit.SECONDS);
         }
-        tracerProviderBuilder = null;
+        spanExporter = null;
+        sampler = null;
+        pendingExporterTimeoutMillis = 0;
+        pendingMaxExportBatchSize = 0;
     }
 
     @Override
