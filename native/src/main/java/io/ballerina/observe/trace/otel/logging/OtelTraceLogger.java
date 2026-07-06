@@ -29,28 +29,41 @@ import java.util.logging.Logger;
 public final class OtelTraceLogger {
     public static final String OTEL_TRACE_LOG = "otel.tracelog";
     private static final Logger traceLogger = Logger.getLogger(OTEL_TRACE_LOG);
+    // Strong reference so the JUL logger (and its handlers) are not garbage collected.
+    // Warnings and errors emitted by the OpenTelemetry SDK (e.g. the reason an OTLP export
+    // failed) are routed to the same handlers as the trace log so that they are visible
+    // even when the runtime suppresses default JUL console output.
+    private static final Logger otelSdkLogger = Logger.getLogger("io.opentelemetry");
 
     public OtelTraceLogger(boolean traceLogConsole, Path logFilePath) {
         for (Handler handler : traceLogger.getHandlers()) {
             traceLogger.removeHandler(handler);
             handler.close();
         }
+        for (Handler handler : otelSdkLogger.getHandlers()) {
+            otelSdkLogger.removeHandler(handler);
+        }
         if (traceLogConsole) {
             ConsoleHandler consoleHandler = new ConsoleHandler();
             consoleHandler.setFormatter(new OtelTraceLogFormatter());
+            consoleHandler.setLevel(Level.ALL);
             traceLogger.addHandler(consoleHandler);
+            otelSdkLogger.addHandler(consoleHandler);
         }
         if (logFilePath != null) {
             try {
                 FileHandler fileHandler = new FileHandler(logFilePath.toString(), true);
                 fileHandler.setFormatter(new OtelTraceLogFormatter());
+                fileHandler.setLevel(Level.ALL);
                 traceLogger.addHandler(fileHandler);
+                otelSdkLogger.addHandler(fileHandler);
 
             } catch (IOException e) {
                 throw new RuntimeException("failed to setup Otel trace log file: " + logFilePath, e);
             }
         }
         traceLogger.setUseParentHandlers(false);
+        otelSdkLogger.setLevel(Level.WARNING);
     }
 
     public OtelTraceLogger() {

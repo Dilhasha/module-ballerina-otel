@@ -19,12 +19,21 @@ import ballerina/jballerina.java;
 import ballerina/observe;
 import ballerina/task;
 
-function initMetricsReporter(string protocol) returns error? {
-    if (!observe:isMetricsEnabled() || observe:getMetricsReporter() != PROVIDER_NAME || !metricsEnabled) {
+function initializeMetrics() returns error? {
+    if !observe:isMetricsEnabled() || observe:getMetricsReporter() != PROVIDER_NAME {
         return;
     }
 
-    externInitializeMetrics(metricsEndpoint, protocol,
+    string lowerProtocol = metricsProtocol.toLowerAscii();
+    if lowerProtocol != "http" && lowerProtocol != "grpc" {
+        return error("Invalid metrics protocol. Must be 'http' or 'grpc'");
+    }
+
+    if !hasSupportedEndpointScheme(metricsEndpoint) {
+        return error("Invalid metrics endpoint. Endpoint must start with http:// or https://");
+    }
+
+    externInitializeMetrics(metricsEndpoint, lowerProtocol,
             metricsExporterHeaders, metricsResourceAttributes, metricsServiceName, metricsExportIntervalMillis,
             metricsExporterTimeoutMillis, metricsPrefix);
 

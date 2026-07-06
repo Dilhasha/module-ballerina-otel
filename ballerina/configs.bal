@@ -29,7 +29,6 @@ configurable string tracesProtocol = "grpc"; // "grpc" or "http"
 configurable map<string> tracesResourceAttributes = {};
 
 // Metrics configuration
-configurable boolean metricsEnabled = false;
 configurable string metricsEndpoint = "http://localhost:4318/v1/metrics";
 configurable string metricsProtocol = "http";
 configurable map<string> metricsExporterHeaders = {};

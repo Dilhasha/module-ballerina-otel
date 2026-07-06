@@ -49,12 +49,6 @@ artifactId = "opentelemetry-sdk-common"
 version = "@opentelemetrySDK.version@"
 
 [[platform.java21.dependency]]
-path = "./lib/opentelemetry-sdk-@opentelemetry.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-sdk"
-version = "@opentelemetry.version@"
-
-[[platform.java21.dependency]]
 path = "./lib/opentelemetry-api-@opentelemetry.version@.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-api"
@@ -67,9 +61,9 @@ artifactId = "opentelemetry-context"
 version = "@opentelemetry.version@"
 
 [[platform.java21.dependency]]
-path = "./lib/opentelemetry-api-events-@opentelemetryIncubator.version@.jar"
+path = "./lib/opentelemetry-extension-incubator-@opentelemetryIncubator.version@.jar"
 groupId = "io.opentelemetry"
-artifactId = "opentelemetry-api-events"
+artifactId = "opentelemetry-extension-incubator"
 version = "@opentelemetryIncubator.version@"
 
 [[platform.java21.dependency]]
@@ -107,84 +101,6 @@ path = "./lib/opentelemetry-sdk-extension-autoconfigure-spi-@opentelemetryExport
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-extension-autoconfigure-spi"
 version = "@opentelemetryExporter.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-sdk-logs-@opentelemetry.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-sdk-logs"
-version = "@opentelemetry.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/guava-@guava.version@.jar"
-groupId = "com.google.guava"
-artifactId = "guava"
-version = "@guava.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/failureaccess-@failureAccess.version@.jar"
-groupId = "com.google.guava"
-artifactId = "failureaccess"
-version = "@failureAccess.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-api-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-api"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-context-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-context"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-core-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-core"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-stub-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-stub"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-protobuf-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-protobuf"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-protobuf-lite-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-protobuf-lite"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/grpc-netty-shaded-@grpc.version@.jar"
-groupId = "io.grpc"
-artifactId = "grpc-netty-shaded"
-version = "@grpc.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/protobuf-java-@protobuf.version@.jar"
-groupId = "com.google.protobuf"
-artifactId = "protobuf-java"
-version = "@protobuf.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/netty-handler-@netty.version@.jar"
-groupId = "io.netty"
-artifactId = "netty-handler"
-version = "@netty.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/perfmark-api-@perfmark.version@.jar"
-groupId = "io.perfmark"
-artifactId = "perfmark-api"
-version = "@perfmark.version@"
 
 [[platform.java21.dependency]]
 path = "./lib/okhttp-@okhttp.version@.jar"

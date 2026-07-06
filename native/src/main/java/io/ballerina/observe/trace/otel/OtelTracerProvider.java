@@ -104,7 +104,7 @@ public class OtelTracerProvider implements TracerProvider {
                 for (BString key : exporterHeaders.getKeys()) {
                     BString value = exporterHeaders.get(key);
                     if (value != null) {
-                        httpExporterBuilder.addHeader(key.getValue(), value.getValue());
+                        httpExporterBuilder.addHeader(normalizeAttributeKey(key.getValue()), value.getValue());
                     }
                 }
             }
@@ -132,7 +132,7 @@ public class OtelTracerProvider implements TracerProvider {
                 for (BString key : exporterHeaders.getKeys()) {
                     BString value = exporterHeaders.get(key);
                     if (value != null) {
-                        grpcExporterBuilder.addHeader(key.getValue(), value.getValue());
+                        grpcExporterBuilder.addHeader(normalizeAttributeKey(key.getValue()), value.getValue());
                     }
                 }
             }

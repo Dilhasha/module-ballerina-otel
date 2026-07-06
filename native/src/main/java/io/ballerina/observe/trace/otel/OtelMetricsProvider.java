@@ -270,7 +270,7 @@ public final class OtelMetricsProvider {
         for (BString key : exporterHeaders.getKeys()) {
             BString value = exporterHeaders.get(key);
             if (value != null) {
-                consumer.addHeader(key.getValue(), value.getValue());
+                consumer.addHeader(normalizeAttributeKey(key.getValue()), value.getValue());
             }
         }
     }
