@@ -43,10 +43,22 @@ artifactId = "opentelemetry-sdk-metrics"
 version = "@opentelemetrySDK.version@"
 
 [[platform.java21.dependency]]
+path = "./lib/opentelemetry-sdk-logs-@opentelemetrySDK.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-sdk-logs"
+version = "@opentelemetrySDK.version@"
+
+[[platform.java21.dependency]]
 path = "./lib/opentelemetry-sdk-common-@opentelemetrySDK.version@.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-common"
 version = "@opentelemetrySDK.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-common-@opentelemetry.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-common"
+version = "@opentelemetry.version@"
 
 [[platform.java21.dependency]]
 path = "./lib/opentelemetry-api-@opentelemetry.version@.jar"
@@ -59,12 +71,6 @@ path = "./lib/opentelemetry-context-@opentelemetry.version@.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-context"
 version = "@opentelemetry.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-extension-incubator-@opentelemetryIncubator.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-extension-incubator"
-version = "@opentelemetryIncubator.version@"
 
 [[platform.java21.dependency]]
 path = "./lib/opentelemetry-semconv-@opentelemetrySemconv.version@.jar"
@@ -94,12 +100,6 @@ version = "@opentelemetryExporter.version@"
 path = "./lib/opentelemetry-exporter-sender-okhttp-@opentelemetryExporter.version@.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-exporter-sender-okhttp"
-version = "@opentelemetryExporter.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-sdk-extension-autoconfigure-spi-@opentelemetryExporter.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-sdk-extension-autoconfigure-spi"
 version = "@opentelemetryExporter.version@"
 
 [[platform.java21.dependency]]

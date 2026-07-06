@@ -24,6 +24,7 @@ import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.observability.tracer.spi.TracerProvider;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
+import io.opentelemetry.api.metrics.MeterProvider;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
@@ -42,7 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
+import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
 
 /**
  * This is the Otel tracing extension class for {@link TracerProvider}.
@@ -105,7 +106,13 @@ public class OtelTracerProvider implements TracerProvider {
         if (isHttpProtocol) {
             // HTTP/HTTPS transport
             var httpExporterBuilder = OtlpHttpSpanExporter.builder()
-                    .setEndpoint(reporterEndpoint);
+                    .setEndpoint(reporterEndpoint)
+                    // Disable exporter self-instrumentation. Its default meter provider relies on
+                    // GlobalOpenTelemetry.getOrNoop(), which is missing from the older
+                    // opentelemetry-api bundled in ballerina-rt and breaks exports at runtime.
+                    // TODO: Remove once ballerina-rt ships an updated opentelemetry-api.
+                    // See https://github.com/ballerina-platform/ballerina-lang/issues/44622
+                    .setMeterProvider(MeterProvider::noop);
 
             // Add custom headers if provided
             if (exporterHeaders != null && !exporterHeaders.isEmpty()) {
@@ -133,7 +140,11 @@ public class OtelTracerProvider implements TracerProvider {
         } else {
             // gRPC transport (default)
             var grpcExporterBuilder = OtlpGrpcSpanExporter.builder()
-                    .setEndpoint(reporterEndpoint);
+                    .setEndpoint(reporterEndpoint)
+                    // Disable exporter self-instrumentation (see the HTTP exporter above).
+                    // TODO: Remove once ballerina-rt ships an updated opentelemetry-api.
+                    // See https://github.com/ballerina-platform/ballerina-lang/issues/44622
+                    .setMeterProvider(MeterProvider::noop);
 
             // Add custom headers if provided
             if (exporterHeaders != null && !exporterHeaders.isEmpty()) {

@@ -24,6 +24,7 @@ import io.ballerina.runtime.api.values.BString;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.metrics.Meter;
+import io.opentelemetry.api.metrics.MeterProvider;
 import io.opentelemetry.api.metrics.ObservableDoubleMeasurement;
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
@@ -40,7 +41,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
+import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
 
 /**
  * OpenTelemetry SDK based metrics exporter for Ballerina observe metrics.
@@ -126,14 +127,24 @@ public final class OtelMetricsProvider {
         if (PROTOCOL_HTTP.equals(protocol)) {
             var builder = OtlpHttpMetricExporter.builder()
                     .setEndpoint(endpoint)
-                    .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS);
+                    .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS)
+                    // Disable exporter self-instrumentation. Its default meter provider relies on
+                    // GlobalOpenTelemetry.getOrNoop(), which is missing from the older
+                    // opentelemetry-api bundled in ballerina-rt and breaks exports at runtime.
+                    // TODO: Remove once ballerina-rt ships an updated opentelemetry-api.
+                    // See https://github.com/ballerina-platform/ballerina-lang/issues/44622
+                    .setMeterProvider(MeterProvider::noop);
             addHeaders(builder::addHeader, exporterHeaders);
             return builder.build();
         }
 
         var builder = OtlpGrpcMetricExporter.builder()
                 .setEndpoint(endpoint)
-                .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS);
+                .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS)
+                // Disable exporter self-instrumentation (see the HTTP exporter above).
+                // TODO: Remove once ballerina-rt ships an updated opentelemetry-api.
+                // See https://github.com/ballerina-platform/ballerina-lang/issues/44622
+                .setMeterProvider(MeterProvider::noop);
         addHeaders(builder::addHeader, exporterHeaders);
         return builder.build();
     }
