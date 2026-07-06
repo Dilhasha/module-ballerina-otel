@@ -25,7 +25,6 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.metrics.ObservableDoubleMeasurement;
-import io.opentelemetry.api.metrics.ObservableLongMeasurement;
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
@@ -228,7 +227,10 @@ public final class OtelMetricsProvider {
         if (meter == null || instruments.containsKey(key)) {
             return;
         }
+        // Double-valued counter so that float-valued Ballerina counters are not truncated
+        // (integer values up to 2^53 are still represented exactly).
         instruments.put(key, meter.counterBuilder(point.name)
+                .ofDoubles()
                 .setDescription(point.description)
                 .buildWithCallback(measurement -> recordCounters(point.name, measurement)));
     }
@@ -243,13 +245,13 @@ public final class OtelMetricsProvider {
                 .buildWithCallback(measurement -> recordGauges(point.name, measurement)));
     }
 
-    private static void recordCounters(String name, ObservableLongMeasurement measurement) {
+    private static void recordCounters(String name, ObservableDoubleMeasurement measurement) {
         List<MetricPoint> points = counters.get(name);
         if (points == null) {
             return;
         }
         for (MetricPoint point : points) {
-            measurement.record(point.value.longValue(), point.attributes);
+            measurement.record(point.value.doubleValue(), point.attributes);
         }
     }
 

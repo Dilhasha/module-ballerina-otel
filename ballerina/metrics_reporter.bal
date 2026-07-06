@@ -38,9 +38,11 @@ function initializeMetrics() returns error? {
             metricsExporterTimeoutMillis, metricsPrefix);
 
     check updateMetricsSnapshot();
-    _ = check task:scheduleJobRecurByFrequency(new MetricsSnapshotJob(), <decimal>metricsExportIntervalMillis / 1000.0);
-
-    io:println(string `[OTEL Metrics] Started publishing metrics to Otel on ${metricsEndpoint}`);
+    // The OTel SDK exports on its own periodic reader. Refresh the snapshot at half the export
+    // interval (minimum 1s) so that each export observes a snapshot that is at most half an
+    // interval old, instead of racing an unsynchronized same-interval timer.
+    decimal snapshotIntervalSeconds = decimal:max(1, <decimal>metricsExportIntervalMillis / 2000);
+    _ = check task:scheduleJobRecurByFrequency(new MetricsSnapshotJob(), snapshotIntervalSeconds);
 }
 
 class MetricsSnapshotJob {

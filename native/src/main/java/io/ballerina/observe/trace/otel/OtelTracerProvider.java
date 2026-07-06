@@ -36,6 +36,10 @@ import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
@@ -60,7 +64,11 @@ public class OtelTracerProvider implements TracerProvider {
     private static final String SAMPLER_PARENTBASED_TRACEIDRATIO = "parentbased_traceidratio";
     private static final String SAMPLER_ALWAYS_ON = "always_on";
 
-    private static SdkTracerProvider tracerProvider;
+    // Per-service tracer providers sharing a single BatchSpanProcessor (and hence a single
+    // exporter pipeline), so that each Ballerina service reports its own resource service.name.
+    private static final Map<String, Tracer> tracers = new HashMap<>();
+    private static final List<SdkTracerProvider> tracerProviders = new ArrayList<>();
+    private static BatchSpanProcessor spanProcessor;
     private static SpanExporter spanExporter;
     private static Sampler sampler;
     private static int pendingExporterTimeoutMillis;
@@ -191,22 +199,31 @@ public class OtelTracerProvider implements TracerProvider {
     }
 
     private static synchronized Tracer getOrCreateTracer(String serviceName) {
-        if (tracerProvider == null) {
+        Tracer tracer = tracers.get(serviceName);
+        if (tracer != null) {
+            return tracer;
+        }
+        if (spanProcessor == null) {
             if (spanExporter == null) {
                 throw new IllegalStateException("Otel tracer provider is not initialized");
             }
-            tracerProvider = SdkTracerProvider.builder()
-                    .addSpanProcessor(BatchSpanProcessor
-                            .builder(spanExporter)
-                            .setMaxExportBatchSize(pendingMaxExportBatchSize)
-                            .setExporterTimeout(pendingExporterTimeoutMillis, TimeUnit.MILLISECONDS)
-                            .build())
-                    .setSampler(sampler)
-                    .setResource(Resource.create(buildResourceAttributes(serviceName)))
+            spanProcessor = BatchSpanProcessor
+                    .builder(spanExporter)
+                    .setMaxExportBatchSize(pendingMaxExportBatchSize)
+                    .setExporterTimeout(pendingExporterTimeoutMillis, TimeUnit.MILLISECONDS)
                     .build();
+            // The processor now owns the exporter; it is shut down through the tracer providers.
             spanExporter = null;
         }
-        return tracerProvider.get(TRACER_NAME);
+        SdkTracerProvider provider = SdkTracerProvider.builder()
+                .addSpanProcessor(spanProcessor)
+                .setSampler(sampler)
+                .setResource(Resource.create(buildResourceAttributes(serviceName)))
+                .build();
+        tracerProviders.add(provider);
+        tracer = provider.get(TRACER_NAME);
+        tracers.put(serviceName, tracer);
+        return tracer;
     }
 
     private static Attributes buildResourceAttributes(String serviceName) {
@@ -241,14 +258,21 @@ public class OtelTracerProvider implements TracerProvider {
     }
 
     private static synchronized void shutdownCurrentProvider() {
-        if (tracerProvider != null) {
-            tracerProvider.shutdown().join(10, TimeUnit.SECONDS);
-            tracerProvider = null;
+        if (!tracerProviders.isEmpty()) {
+            // All providers share one BatchSpanProcessor; its shutdown is idempotent,
+            // so shutting each provider down is safe and flushes pending spans once.
+            for (SdkTracerProvider provider : tracerProviders) {
+                provider.shutdown().join(10, TimeUnit.SECONDS);
+            }
+            tracerProviders.clear();
         } else if (spanExporter != null) {
             spanExporter.shutdown().join(10, TimeUnit.SECONDS);
         }
+        tracers.clear();
+        spanProcessor = null;
         spanExporter = null;
         sampler = null;
+        resourceAttributes = null;
         pendingExporterTimeoutMillis = 0;
         pendingMaxExportBatchSize = 0;
     }

@@ -25,18 +25,28 @@ import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.sdk.common.CompletableResultCode;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
+import io.opentelemetry.sdk.trace.samplers.Sampler;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -50,8 +60,15 @@ public class OtelTracerProviderTest {
     private OtelTracerProvider tracerProvider;
 
     @BeforeMethod
-    public void setUp() {
+    public void setUp() throws Exception {
         tracerProvider = new OtelTracerProvider();
+        // Reset shared static state so tests do not leak providers into each other
+        OtelTracerProviderTest.<Map<?, ?>>getStaticField("tracers").clear();
+        OtelTracerProviderTest.<List<?>>getStaticField("tracerProviders").clear();
+        setStaticField("spanProcessor", null);
+        setStaticField("spanExporter", null);
+        setStaticField("sampler", null);
+        setStaticField("resourceAttributes", null);
     }
 
     @Test
@@ -91,12 +108,48 @@ public class OtelTracerProviderTest {
         SpanExporter exporter = mock(SpanExporter.class);
         when(exporter.shutdown()).thenReturn(CompletableResultCode.ofSuccess());
         setStaticField("spanExporter", exporter);
-        setStaticField("tracerProvider", null);
 
         invokeShutdownCurrentProvider();
 
         verify(exporter, times(1)).shutdown();
         assertNull(getStaticField("spanExporter"));
+    }
+
+    @Test
+    public void testGetTracerUsesPerServiceResourceServiceName() throws Exception {
+        InMemorySpanExporter exporter = InMemorySpanExporter.create();
+        setStaticField("spanExporter", exporter);
+        setStaticField("sampler", Sampler.alwaysOn());
+        setStaticField("resourceAttributes", null);
+        setStaticIntField("pendingExporterTimeoutMillis", 1000);
+        setStaticIntField("pendingMaxExportBatchSize", 512);
+
+        try {
+            Tracer ordersTracer = tracerProvider.getTracer("orders");
+            Tracer paymentsTracer = tracerProvider.getTracer("payments");
+            // Requesting the same service again must return the cached tracer
+            assertSame(tracerProvider.getTracer("orders"), ordersTracer);
+
+            ordersTracer.spanBuilder("orders-span").startSpan().end();
+            paymentsTracer.spanBuilder("payments-span").startSpan().end();
+
+            // Flush the shared batch processor before shutdown (shutdown clears the
+            // InMemorySpanExporter's recorded spans)
+            BatchSpanProcessor processor = getStaticField("spanProcessor");
+            processor.forceFlush().join(5, TimeUnit.SECONDS);
+
+            List<SpanData> spans = exporter.getFinishedSpanItems();
+            assertEquals(spans.size(), 2);
+            Map<String, String> serviceNamesBySpan = new HashMap<>();
+            for (SpanData span : spans) {
+                serviceNamesBySpan.put(span.getName(),
+                        span.getResource().getAttribute(AttributeKey.stringKey("service.name")));
+            }
+            assertEquals(serviceNamesBySpan.get("orders-span"), "orders");
+            assertEquals(serviceNamesBySpan.get("payments-span"), "payments");
+        } finally {
+            invokeShutdownCurrentProvider();
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -113,6 +166,12 @@ public class OtelTracerProviderTest {
         Field field = OtelTracerProvider.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(null, value);
+    }
+
+    private static void setStaticIntField(String fieldName, int value) throws Exception {
+        Field field = OtelTracerProvider.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(null, value);
     }
 
     @SuppressWarnings("unchecked")
