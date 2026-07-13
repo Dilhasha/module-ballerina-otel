@@ -56,7 +56,10 @@ version = "1.63.0"
 
 # NOTE: opentelemetry-api and opentelemetry-context are intentionally not
 # packed: ballerina-rt shades both artifacts and its copies always win
-# classloading. 
+# classloading. opentelemetry-sdk-logs is intentionally not packed: only the
+# (unused) OTLP log exporter classes reference it. opentelemetry-semconv is
+# not needed: the only used constant (service.name) is inlined in the native
+# code.
 
 [[platform.java21.dependency]]
 path = "./lib/opentelemetry-exporter-otlp-1.63.0.jar"

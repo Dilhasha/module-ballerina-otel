@@ -27,6 +27,7 @@ import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BDecimal;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
+import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 
 import java.lang.reflect.Field;
@@ -35,6 +36,7 @@ import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 /**
  * Shared helpers for the OTLP export tests: Ballerina runtime value construction and
@@ -121,7 +123,8 @@ final class OtelExportTestUtils {
         field.setAccessible(true);
         BatchSpanProcessor processor = (BatchSpanProcessor) field.get(null);
         assertNotNull(processor, "span processor was not created");
-        processor.forceFlush().join(10, TimeUnit.SECONDS);
+        CompletableResultCode result = processor.forceFlush().join(10, TimeUnit.SECONDS);
+        assertTrue(result.isSuccess(), "span processor force flush did not succeed within 10 seconds");
     }
 
     /**
