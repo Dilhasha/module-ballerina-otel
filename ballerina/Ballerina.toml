@@ -43,12 +43,6 @@ artifactId = "opentelemetry-sdk-metrics"
 version = "1.63.0"
 
 [[platform.java21.dependency]]
-path = "./lib/opentelemetry-sdk-logs-1.63.0.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-sdk-logs"
-version = "1.63.0"
-
-[[platform.java21.dependency]]
 path = "./lib/opentelemetry-sdk-common-1.63.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-common"
@@ -60,23 +54,9 @@ groupId = "io.opentelemetry"
 artifactId = "opentelemetry-common"
 version = "1.63.0"
 
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-api-1.63.0.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-api"
-version = "1.63.0"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-context-1.63.0.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-context"
-version = "1.63.0"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-semconv-1.41.1.jar"
-groupId = "io.opentelemetry.semconv"
-artifactId = "opentelemetry-semconv"
-version = "1.41.1"
+# NOTE: opentelemetry-api and opentelemetry-context are intentionally not
+# packed: ballerina-rt shades both artifacts and its copies always win
+# classloading. 
 
 [[platform.java21.dependency]]
 path = "./lib/opentelemetry-exporter-otlp-1.63.0.jar"
@@ -103,19 +83,21 @@ artifactId = "opentelemetry-exporter-sender-okhttp"
 version = "1.63.0"
 
 [[platform.java21.dependency]]
-path = "./lib/okhttp-4.12.0.jar"
+path = "./lib/okhttp-jvm-5.3.2.jar"
 groupId = "com.squareup.okhttp3"
-artifactId = "okhttp"
-version = "4.12.0"
+artifactId = "okhttp-jvm"
+version = "5.3.2"
 
 [[platform.java21.dependency]]
-path = "./lib/okio-jvm-3.9.0.jar"
+path = "./lib/okio-jvm-3.16.4.jar"
 groupId = "com.squareup.okio"
 artifactId = "okio-jvm"
-version = "3.9.0"
+version = "3.16.4"
 
+# kotlin-stdlib is bundled as a ProGuard-shrunk jar (see the size-reduction-test
+# subproject): only the classes reachable from okhttp/okio are kept.
 [[platform.java21.dependency]]
-path = "./lib/kotlin-stdlib-1.9.23.jar"
+path = "./lib/kotlin-stdlib-2.2.21-slim.jar"
 groupId = "org.jetbrains.kotlin"
 artifactId = "kotlin-stdlib"
-version = "1.9.23"
+version = "2.2.21"

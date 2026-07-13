@@ -1,0 +1,192 @@
+# Ballerina OTel collector tests
+
+End-to-end tests that verify the `ballerina/otel` module exports traces and metrics that a
+**real OpenTelemetry Collector** can receive, process, and forward. Unlike the JVM-level
+tests in `size-reduction-test` (which use in-JVM mock collectors), these tests validate the
+full pipeline from an instrumented Ballerina program through an actual
+`opentelemetry-collector-contrib` instance — over both **OTLP/HTTP and OTLP/gRPC**.
+
+## Self-contained test setup
+
+No manual setup is required — the tests are **self-contained**:
+
+- The Gradle build (`build.gradle` → `startOtelCollector` / `stopOtelCollector`) starts an
+  `otel/opentelemetry-collector-contrib:0.120.0` container named `otel-collector-test` via
+  Docker Compose before the tests run, and tears it down afterwards (`finalizedBy`).
+- If a container with that name is already running, it is reused instead of restarted.
+- **Docker is therefore a hard requirement.** On Windows the collector tasks (and the
+  Ballerina tests) are skipped; on any platform they can be skipped with `-PskipBalTests`.
+- Everything the collector forwards is captured by a mock OTLP sink implemented *inside the
+  test package itself* (`tests/otlp_sink.bal`), so no other external service is involved.
+- The collector's receivers are published on the **non-default host ports 14318 (HTTP) and
+  14317 (gRPC)**: local observability agents (e.g. the Datadog Agent) often already listen
+  on the standard OTLP ports 4317/4318 on developer machines. The non-default ports make the tests
+  independent of any local agent.
+
+## Architecture
+
+```
+Ballerina app under test (main.bal, :9091)
+        │  OTLP export (per-scenario Config.toml:
+        │  HTTP → localhost:14318, gRPC → localhost:14317,
+        │  or a dead endpoint in the "unreachable" scenario)
+        ▼
+OpenTelemetry Collector (Docker, otel/opentelemetry-collector-contrib:0.120.0)
+  receivers: otlp http :4318 / grpc :4317 (host :14318 / :14317)
+  → processors: batch → exporters: otlphttp (OTLP/JSON)
+        │  http://host.docker.internal:9095
+        ▼
+Test sink service (tests/otlp_sink.bal, :9095) — stores raw OTLP/JSON payloads in memory
+        │
+        ▼
+Test suite (tests/test.bal) — deserializes payloads and asserts on spans/metrics
+```
+
+The collector re-exports as **OTLP/JSON** (`encoding: json`, no compression) so the test
+suite can assert on the payloads with plain Ballerina `json` handling — the assertions run
+against exactly what a real collector received and processed.
+
+### Ports
+
+| Port | Owner | Purpose |
+|------|-------|---------|
+| 9091 | `main.bal` | HTTP service under test (`GET /test/sum`, `GET /test/failure`) |
+| 14318 | Docker collector | OTLP/HTTP receiver (container port 4318) |
+| 14317 | Docker collector | OTLP/gRPC receiver (container port 4317) |
+| 9095 | `tests/otlp_sink.bal` | OTLP/JSON sink the collector forwards to |
+| 4390 | nobody (intentionally) | Dead endpoint used by the "unreachable" scenario |
+
+## Scenarios
+
+The exporter configuration is fixed for the lifetime of a Ballerina process, so the Gradle
+`ballerinaTest` task runs `bal test` **once per scenario**. For each run it copies the
+scenario config from `otel-collector-tests/tests/configs/` to
+`otel-collector-tests/tests/Config.toml` (a **generated, gitignored** file — `bal test`
+ignores a caller-provided `BAL_CONFIG_FILES` environment variable, but always picks up
+`tests/Config.toml`) and selects the matching test cases with `--groups`.
+
+| Run | Config | Groups | Exercises |
+|-----|--------|--------|-----------|
+| OTLP/HTTP export (with code coverage) | `configs/default.toml` | `export` | Full trace/metric export over OTLP/HTTP (:14318), `always_on` sampler |
+| OTLP/gRPC export | `configs/grpc.toml` | `export` | Same assertions over OTLP/gRPC (:14317) |
+| always_off sampler | `configs/sampler_off.toml` | `sampler-off` | No spans exported; metrics unaffected by the trace sampler |
+| Unreachable endpoint | `configs/unreachable.toml` | `unreachable` | Exporters point at a dead port (:4390); app keeps serving while every export fails |
+
+Each scenario configures a **distinct `service.name`** resource attribute, and every
+span/metric lookup in the test suite filters on it — late or retried exports from a
+previous scenario run (still buffered in the collector) cannot leak into the assertions of
+the current run.
+
+## Layout
+
+| Path | Purpose |
+|------|---------|
+| `build.gradle` | Unpacks the exact `jballerina-tools` distribution, publishes the module to the local repo, manages the collector container, runs `bal test` once per scenario |
+| `otel-collector-tests/main.bal` | Instrumented HTTP service: `GET /test/sum`, `GET /test/failure` (intentionally returns an error → 500, for error-span coverage), plus an `@observe:Observable` class method |
+| `otel-collector-tests/tests/configs/*.toml` | Per-scenario configs (`default`, `grpc`, `sampler_off`, `unreachable`): scenario/service-name selectors plus `[ballerina.otel]` endpoints, protocols, sampler, 3 s metric export interval, resource attributes |
+| `otel-collector-tests/tests/Config.toml` | **Generated** per run from `tests/configs/` by the Gradle build (gitignored) |
+| `otel-collector-tests/tests/otlp_sink.bal` | Mock OTLP sink on `:9095` (`POST /v1/traces`, `POST /v1/metrics`), thread-safe in-memory capture |
+| `otel-collector-tests/tests/test.bal` | Test cases (grouped per scenario) + OTLP/JSON record types and helpers |
+| `resources/otel-collector/docker-compose.yml` | Collector container definition (host ports `:14318`/`:14317`) |
+| `resources/otel-collector/docker-compose.linux.yml` | Linux-only override mapping `host.docker.internal` to the host gateway (needed on plain Linux/CI; would break Docker Desktop if applied unconditionally) |
+| `resources/otel-collector/otel-collector-config.yaml` | Collector pipelines: `otlp` receiver (HTTP + gRPC) → `batch` processor → `otlphttp` (JSON) + `debug` exporters |
+
+## Test cases (`tests/test.bal`)
+
+### Setup — `setupScenario` (`@test:BeforeSuite`)
+
+Always sends `GET http://localhost:9091/test/sum`, then per scenario:
+
+- **export**: also sends `GET /test/failure` (must fail with a 500), then polls the sink
+  for up to 90 s (1 s interval) until all five expected spans **and** the `requests_total`
+  metric have arrived (app batch export → collector batch → sink). On timeout it fails
+  with a diagnostic error listing the span/metric names actually received.
+- **sampler-off**: waits for the `requests_total` metric, then a 5 s grace period so any
+  (unexpected) spans would have time to flow through the pipeline before asserting none
+  arrived.
+- **unreachable**: sleeps 8 s so the exporters attempt (and fail) the span batch export
+  and at least one periodic metric export.
+
+Expected spans (export scenario):
+
+- `get /sum` — resource function (server span)
+- `get /failure` — error resource function (server span, 500)
+- `ballerinax/otel_collector_tests/ObservableAdder:getSum` — `@observe:Observable` user function
+- `ballerina/http/Caller:respond` — caller respond client call
+- `ballerina/http/Client:get` — the test's own outbound HTTP client call
+
+### Assertions
+
+| Test | Groups | Verifies |
+|------|--------|----------|
+| `testServiceResponse` | all | The service responded `"Sum: 53"` (the instrumented request itself succeeded) |
+| `testTraceResourceAttributes` | export | Trace resource carries the configured `service.name` and `deployment.environment` from `[ballerina.otel.tracesResourceAttributes]` |
+| `testExpectedSpansExported` | export | All five expected spans reached the collector |
+| `testSpanHierarchy` | export | Trace-context propagation over HTTP: the server span is a descendant of the test's `Client:get` span (walking the client-side span chain), and `ObservableAdder:getSum` / `Caller:respond` are direct children of the server span within the same trace |
+| `testSpanKinds` | export | The resource function span is `SPAN_KIND_SERVER` and its direct parent (the over-the-wire client span) is `SPAN_KIND_CLIENT` (accepts int or enum-name OTLP/JSON encodings) |
+| `testResourceFunctionSpanAttributes` | export | Server span attributes: `http.method=GET`, `http.url=/test/sum`, `http.status_code=200`, `protocol=http`, `src.resource.accessor=get`, `src.resource.path=/sum` |
+| `testSuccessfulSpanNotMarkedAsError` | export | The successful `get /sum` span carries no error indication (OTLP status or `error=true` attribute) |
+| `testErrorSpanExportedWithErrorIndication` | export | The `get /failure` span has `http.status_code=500` and an error indication (OTLP `STATUS_CODE_ERROR` or the runtime's `error=true` attribute) |
+| `testMetricsExported` | export | The `requests_total` metric reached the collector |
+| `testRequestsTotalCounterDataPoints` | export | `requests_total` is exported as a **monotonic sum** with a data point tagged `src.resource.path="/sum"` and value ≥ 1 |
+| `testInprogressRequestsGaugeExported` | export | `inprogress_requests` is exported as a **gauge** with at least one numeric data point |
+| `testMetricsResourceAttributes` | export | Metric resource carries the configured `service.name` and `deployment.environment` from `[ballerina.otel.metricsResourceAttributes]` |
+| `testNoSpansExportedWhenSamplerAlwaysOff` | sampler-off | With `tracesSampler = "always_off"` no spans reach the sink |
+| `testMetricsStillExportedWhenSamplerAlwaysOff` | sampler-off | The trace sampler does not affect metrics — `requests_total` still arrives |
+| `testServiceUnaffectedByUnreachableEndpoint` | unreachable | The app keeps serving requests while every export attempt fails in the background |
+| `testNoExportsReachSinkWhenEndpointUnreachable` | unreachable | Nothing reaches the sink when the exporters point at a dead endpoint |
+
+Helper utilities in `test.bal` deserialize the OTLP/JSON payloads into open records
+(`OtlpTracePayload`, `OtlpMetricsPayload`, `OtlpSum`, `OtlpGauge`, …), flatten spans with
+their resource attributes, walk parent-span chains, normalize OTLP attribute encodings
+(`stringValue`/`intValue`/`boolValue`), normalize data-point values (OTLP/JSON encodes
+doubles as JSON numbers but int64 as JSON strings), and detect error spans (OTLP status
+code or `error=true` attribute).
+
+## Running
+
+```bash
+# Full run (builds the module, publishes it locally, starts the collector,
+# runs bal test once per scenario)
+./gradlew :otel-extension-ballerina-tests:test
+
+# Skip these tests
+./gradlew build -PskipBalTests
+
+# Attach a debugger to the Ballerina test run (runs only the OTLP/HTTP export scenario)
+./gradlew :otel-extension-ballerina-tests:test -Pdebug=5005
+```
+
+To run a single scenario manually, copy its config into place and use the unpacked
+distribution's `bal` with the matching group:
+
+```bash
+cd ballerina-tests/otel-collector-tests
+cp tests/configs/grpc.toml tests/Config.toml
+JAVA_OPTS="-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true" \
+    ../build/extracted-distributions/jballerina-tools-*/bin/bal test --groups export
+```
+
+Notes:
+
+- The tests run on the exact `jballerina-tools` distribution declared by
+  `ballerinaLangVersion` (unpacked into `build/extracted-distributions`), because the
+  module's OTel SDK jars require the `opentelemetry-api` version shaded into that
+  distribution's `ballerina-rt` — a locally installed `bal` may be older.
+- `observe-ballerina` (`ballerinai/observe`) is copied into the distribution repo since
+  timestamped distributions ship bare, and the compiler injects that import when
+  `observabilityIncluded = true`.
+- `otel-collector-tests/Ballerina.toml` is regenerated from
+  `build-config/resources/tests/Ballerina.toml` with the current module version
+  (`updateTomlVersions`), and the module bala is published to the local repository first.
+- When debugging export problems, add `tracesLogConsole = true` (or point
+  `tracesLogFile` at a file) under `[ballerina.otel]` in the scenario config to surface
+  the OTel SDK's own exporter logs.
+
+## Requirements
+
+- Docker with Compose (collector container) — tests are skipped on Windows
+- JDK 21 (module build)
+- Free local ports: 9091, 9095, 14317, 14318 (and nothing listening on 4390)
+- Network access to pull `otel/opentelemetry-collector-contrib:0.120.0` and the Ballerina
+  distribution on first run

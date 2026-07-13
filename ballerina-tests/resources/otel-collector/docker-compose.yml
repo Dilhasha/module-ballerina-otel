@@ -1,0 +1,36 @@
+# Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+#
+# WSO2 Inc. licenses this file to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+services:
+  otel_collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    container_name: otel-collector-test
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    # The receivers are published on non-default host ports: local
+    # observability agents (e.g. the Datadog Agent) often already listen on
+    # the standard OTLP ports 4317/4318 on developer machines. Such an agent
+    # wins the bind race silently and ACKs the exports, so the tests would
+    # time out waiting for telemetry that went to the wrong endpoint.
+    ports:
+      - "14317:4317"
+      - "14318:4318"
+    # Note: host.docker.internal resolves natively on Docker Desktop and
+    # Rancher Desktop. On plain Linux (e.g. CI) docker-compose.linux.yml is
+    # applied as an override to map it to the docker host gateway; adding
+    # that mapping here unconditionally would override the native resolution
+    # on macOS/Windows runtimes and break connectivity to the test sink.

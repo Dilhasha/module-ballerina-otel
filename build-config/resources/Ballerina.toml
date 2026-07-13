@@ -43,12 +43,6 @@ artifactId = "opentelemetry-sdk-metrics"
 version = "@opentelemetrySDK.version@"
 
 [[platform.java21.dependency]]
-path = "./lib/opentelemetry-sdk-logs-@opentelemetrySDK.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-sdk-logs"
-version = "@opentelemetrySDK.version@"
-
-[[platform.java21.dependency]]
 path = "./lib/opentelemetry-sdk-common-@opentelemetrySDK.version@.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-common"
@@ -60,23 +54,12 @@ groupId = "io.opentelemetry"
 artifactId = "opentelemetry-common"
 version = "@opentelemetry.version@"
 
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-api-@opentelemetry.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-api"
-version = "@opentelemetry.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-context-@opentelemetry.version@.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-context"
-version = "@opentelemetry.version@"
-
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-semconv-@opentelemetrySemconv.version@.jar"
-groupId = "io.opentelemetry.semconv"
-artifactId = "opentelemetry-semconv"
-version = "@opentelemetrySemconv.version@"
+# NOTE: opentelemetry-api and opentelemetry-context are intentionally not
+# packed: ballerina-rt shades both artifacts and its copies always win
+# classloading. opentelemetry-sdk-logs is intentionally not packed: only the
+# (unused) OTLP log exporter classes reference it. opentelemetry-semconv is
+# not needed: the only used constant (service.name) is inlined in the native
+# code.
 
 [[platform.java21.dependency]]
 path = "./lib/opentelemetry-exporter-otlp-@opentelemetryExporter.version@.jar"
@@ -103,9 +86,9 @@ artifactId = "opentelemetry-exporter-sender-okhttp"
 version = "@opentelemetryExporter.version@"
 
 [[platform.java21.dependency]]
-path = "./lib/okhttp-@okhttp.version@.jar"
+path = "./lib/okhttp-jvm-@okhttp.version@.jar"
 groupId = "com.squareup.okhttp3"
-artifactId = "okhttp"
+artifactId = "okhttp-jvm"
 version = "@okhttp.version@"
 
 [[platform.java21.dependency]]
@@ -114,8 +97,10 @@ groupId = "com.squareup.okio"
 artifactId = "okio-jvm"
 version = "@okio.version@"
 
+# kotlin-stdlib is bundled as a ProGuard-shrunk jar (see the size-reduction-test
+# subproject): only the classes reachable from okhttp/okio are kept.
 [[platform.java21.dependency]]
-path = "./lib/kotlin-stdlib-@kotlinStdlib.version@.jar"
+path = "./lib/kotlin-stdlib-@kotlinStdlib.version@-slim.jar"
 groupId = "org.jetbrains.kotlin"
 artifactId = "kotlin-stdlib"
 version = "@kotlinStdlib.version@"

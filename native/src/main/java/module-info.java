@@ -5,7 +5,6 @@ module io.ballerina.observe.trace.extension.otel {
     requires io.opentelemetry.sdk.trace;
     requires io.opentelemetry.sdk.metrics;
     requires io.opentelemetry.sdk.common;
-    requires io.opentelemetry.semconv;
     requires io.opentelemetry.exporter.otlp;
     requires java.logging;
 

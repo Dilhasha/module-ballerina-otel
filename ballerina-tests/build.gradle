@@ -1,0 +1,220 @@
+/*
+ * Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
+description = 'Ballerina - Otel Extension - Ballerina Tests'
+
+def testPackage = "otel-collector-tests"
+def ballerinaTomlFile = new File("${project.projectDir}/${testPackage}/Ballerina.toml")
+def ballerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/tests/Ballerina.toml")
+def collectorContainerName = "otel-collector-test"
+def collectorComposeFile = "${project.projectDir}/resources/otel-collector/docker-compose.yml"
+// On plain Linux docker hosts, host.docker.internal must be mapped to the
+// host gateway explicitly (Docker Desktop / Rancher Desktop resolve it
+// natively, and the static mapping would break their resolution).
+def isLinux = !Os.isFamily(Os.FAMILY_WINDOWS) && !Os.isFamily(Os.FAMILY_MAC)
+def collectorComposeFileArgs = "-f ${collectorComposeFile}" +
+        (isLinux ? " -f ${project.projectDir}/resources/otel-collector/docker-compose.linux.yml" : "")
+
+// The module packs OTel SDK jars that need the opentelemetry-api version shaded
+// into ballerina-rt of the ballerinaLangVersion distribution, so the tests must
+// run on that exact distribution (a locally installed `bal` may be older).
+//
+// TODO: Simplify once a GA distribution ships the opentelemetry-api version the
+// packed SDK jars need (currently only the timestamped ballerinaLangVersion
+// build has it). GA distributions are full (ballerinai/observe packed), so both
+// workarounds can then be dropped together: remove unpackJballerinaTools /
+// unpackStdLibs / copyStdlibsToDistribution and the jbalTools/ballerinaStdLibs
+// dependencies, and run `bal test` from PATH instead of distributionBinPath.
+// Keep a fast-fail check that `bal version` matches ballerinaLangVersion, since
+// an older local `bal` fails only at runtime with confusing linkage errors.
+def extractedDistributions = "${project.buildDir}/extracted-distributions"
+def distributionBinPath = "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/bin"
+
+dependencies {
+    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaLangVersion}") {
+        transitive = false
+    }
+    // Timestamped jballerina-tools distributions are bare (no ballerinai
+    // modules packed), but the compiler injects an import of
+    // ballerinai/observe when observabilityIncluded is set, so the module
+    // must be copied into the distribution repo before running the tests.
+    ballerinaStdLibs("io.ballerina:observe-ballerina:${observeInternalVersion}") {
+        transitive = false
+    }
+}
+
+task unpackJballerinaTools(type: Copy) {
+    configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+        from zipTree(artifact.getFile())
+        into new File(extractedDistributions)
+    }
+}
+
+task unpackStdLibs {
+    dependsOn unpackJballerinaTools
+    doLast {
+        configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            copy {
+                from project.zipTree(artifact.getFile())
+                into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-' + artifact.moduleVersion.id.version)
+            }
+        }
+    }
+}
+
+task copyStdlibsToDistribution(type: Copy) {
+    dependsOn unpackStdLibs
+    into "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/repo"
+    configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+        def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-' + artifact.moduleVersion.id.version
+        into("bala") {
+            from "${artifactExtractedPath}/bala"
+        }
+        into("cache") {
+            from "${artifactExtractedPath}/cache"
+        }
+    }
+}
+
+def stripBallerinaExtensionVersion(String extVersion) {
+    if (extVersion.matches(project.ext.timestampedVersionRegex)) {
+        def splitVersion = extVersion.split('-')
+        if (splitVersion.length > 3) {
+            def strippedValues = splitVersion[0..-4]
+            return strippedValues.join('-')
+        } else {
+            return extVersion
+        }
+    } else {
+        return extVersion.replace("${project.ext.snapshotVersion}", "")
+    }
+}
+
+def tomlVersion = stripBallerinaExtensionVersion("${project.version}")
+
+task updateTomlVersions {
+    doLast {
+        def newBallerinaToml = ballerinaTomlFilePlaceHolder.text.replace("@toml.version@", tomlVersion)
+        ballerinaTomlFile.text = newBallerinaToml
+    }
+}
+
+task startOtelCollector {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${collectorContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (!stdOut.toString().contains(collectorContainerName)) {
+                println "Starting OpenTelemetry Collector"
+                exec {
+                    commandLine 'sh', '-c', "docker compose ${collectorComposeFileArgs} up -d"
+                }
+                sleep(10 * 1000)
+            } else {
+                println "OpenTelemetry Collector is already running"
+            }
+        }
+    }
+}
+
+task stopOtelCollector {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${collectorContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (stdOut.toString().contains(collectorContainerName)) {
+                println "Stopping OpenTelemetry Collector"
+                exec {
+                    commandLine 'sh', '-c', "docker compose ${collectorComposeFileArgs} down"
+                }
+            } else {
+                println "OpenTelemetry Collector is not running"
+            }
+        }
+    }
+}
+
+task ballerinaTest {
+    dependsOn ':otel-extension-ballerina:ballerinaBuild'
+    dependsOn ':otel-extension-ballerina:publishBalaFileToLocal'
+    dependsOn unpackJballerinaTools
+    dependsOn copyStdlibsToDistribution
+    dependsOn updateTomlVersions
+    dependsOn startOtelCollector
+    finalizedBy stopOtelCollector
+
+    doLast {
+        def scenarioConfigsDir = "${project.projectDir}/${testPackage}/tests/configs"
+        def testsConfigFile = new File("${project.projectDir}/${testPackage}/tests/Config.toml")
+        // Runs `bal test` once per scenario. Each scenario is a separate
+        // invocation because the otel exporter configuration is fixed for the
+        // lifetime of a run. `bal test` ignores a caller-provided
+        // BAL_CONFIG_FILES environment variable, so the scenario config is
+        // copied to tests/Config.toml (which Testerina always picks up) and
+        // the matching test cases are selected through --groups.
+        def runBalTest = { String testParams, String configFile ->
+            testsConfigFile.text = new File("${scenarioConfigsDir}/${configFile}").text
+            exec {
+                workingDir "${project.projectDir}/${testPackage}"
+                environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                    commandLine 'cmd', '/c', "${distributionBinPath}/bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
+                } else {
+                    commandLine 'sh', '-c', "${distributionBinPath}/bal test ${testParams}"
+                }
+            }
+        }
+
+        if (project.hasProperty("debug")) {
+            // Debugging runs only the default (OTLP/HTTP) scenario.
+            runBalTest("--debug ${project.findProperty("debug")} --groups export", "default.toml")
+            return
+        }
+
+        println "Running Ballerina tests: OTLP/HTTP export scenario"
+        runBalTest("--code-coverage --coverage-format=xml --groups export", "default.toml")
+        println "Running Ballerina tests: OTLP/gRPC export scenario"
+        runBalTest("--groups export", "grpc.toml")
+        println "Running Ballerina tests: always_off sampler scenario"
+        runBalTest("--groups sampler-off", "sampler_off.toml")
+        println "Running Ballerina tests: unreachable endpoint scenario"
+        runBalTest("--groups unreachable", "unreachable.toml")
+    }
+}
+
+// The collector tests need a local docker daemon; allow skipping them with
+// `-PskipBalTests` (the collector start/stop tasks are skipped on Windows).
+if (!project.hasProperty("skipBalTests") && !Os.isFamily(Os.FAMILY_WINDOWS)) {
+    test.dependsOn ballerinaTest
+}
+
+clean {
+    delete "${project.projectDir}/${testPackage}/target"
+    delete "${project.projectDir}/${testPackage}/Ballerina.lock"
+    delete "${project.projectDir}/${testPackage}/ballerina-internal.log"
+    // Generated per scenario run from tests/configs/ by the ballerinaTest task.
+    delete "${project.projectDir}/${testPackage}/tests/Config.toml"
+}

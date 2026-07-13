@@ -1,0 +1,21 @@
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "otel"
+metricsEnabled = true
+metricsReporter = "otel"
+
+[ballerina.otel]
+tracesEndpoint = "http://localhost:4318/v1/traces"
+tracesProtocol = "http"
+tracesSampler = "always_on"
+metricsEndpoint = "http://localhost:4318/v1/metrics"
+metricsProtocol = "http"
+metricsExportIntervalMillis = 3000
+
+[ballerina.otel.tracesResourceAttributes]
+"service.name" = "ballerina-otel-collector-tests"
+"deployment.environment" = "test"
+
+[ballerina.otel.metricsResourceAttributes]
+"service.name" = "ballerina-otel-collector-tests"
+"deployment.environment" = "test"

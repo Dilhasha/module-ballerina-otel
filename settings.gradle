@@ -25,10 +25,14 @@ rootProject.name = 'module-ballerina-otel'
 include(':build-config:checkstyle')
 include(':otel-extension-ballerina')
 include(':otel-extension-native')
+include(':otel-extension-ballerina-tests')
+include(':size-reduction-test')
 
 project(':build-config:checkstyle').projectDir = file('build-config/checkstyle')
 project(':otel-extension-ballerina').projectDir = file('ballerina')
 project(':otel-extension-native').projectDir = file('native')
+project(':otel-extension-ballerina-tests').projectDir = file('ballerina-tests')
+project(':size-reduction-test').projectDir = file('size-reduction-test')
 
 gradleEnterprise {
     buildScan {

@@ -21,6 +21,7 @@ import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.metrics.Meter;
@@ -41,13 +42,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
-
 /**
  * OpenTelemetry SDK based metrics exporter for Ballerina observe metrics.
  */
 public final class OtelMetricsProvider {
     private static final String PROTOCOL_HTTP = "http";
+    // "service.name" resource attribute key per the *stable* OTel resource semantic
+    // conventions. Inlined (mirroring the OTel SDK's own Resource class) instead of
+    // packing the semconv jar for this single constant.
+    private static final AttributeKey<String> SERVICE_NAME = AttributeKey.stringKey("service.name");
     private static final String SCHEME_HTTPS = "https://";
     private static final String COUNTER = "counter";
     private static final String GAUGE = "gauge";
@@ -161,7 +164,7 @@ public final class OtelMetricsProvider {
                 }
 
                 String attributeKey = normalizeAttributeKey(key.getValue());
-                if ("service.name".equals(attributeKey)) {
+                if (SERVICE_NAME.getKey().equals(attributeKey)) {
                     resolvedServiceName = value.getValue();
                 } else {
                     builder.put(attributeKey, value.getValue());

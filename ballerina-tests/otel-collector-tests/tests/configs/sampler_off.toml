@@ -1,0 +1,29 @@
+# always_off sampler scenario: no spans may reach the collector, while
+# metrics (which are unaffected by the trace sampler) must still be
+# exported. Copied to tests/Config.toml by the Gradle build. A distinct
+# service.name isolates this run's telemetry from any late/retried exports
+# of other scenario runs still in the collector.
+scenario = "sampler-off"
+expectedServiceName = "ballerina-otel-sampler-off-tests"
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "otel"
+metricsEnabled = true
+metricsReporter = "otel"
+
+[ballerina.otel]
+tracesEndpoint = "http://localhost:14318/v1/traces"
+tracesProtocol = "http"
+tracesSampler = "always_off"
+metricsEndpoint = "http://localhost:14318/v1/metrics"
+metricsProtocol = "http"
+metricsExportIntervalMillis = 3000
+
+[ballerina.otel.tracesResourceAttributes]
+"service.name" = "ballerina-otel-sampler-off-tests"
+"deployment.environment" = "test"
+
+[ballerina.otel.metricsResourceAttributes]
+"service.name" = "ballerina-otel-sampler-off-tests"
+"deployment.environment" = "test"

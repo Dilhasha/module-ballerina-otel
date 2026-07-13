@@ -22,6 +22,7 @@ import io.ballerina.runtime.api.values.BDecimal;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.observability.tracer.spi.TracerProvider;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.metrics.MeterProvider;
@@ -43,14 +44,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static io.opentelemetry.semconv.ServiceAttributes.SERVICE_NAME;
-
 /**
  * This is the Otel tracing extension class for {@link TracerProvider}.
  */
 public class OtelTracerProvider implements TracerProvider {
     // Tracer constants
     private static final String TRACER_NAME = "otel";
+    // "service.name" resource attribute key per the *stable* OTel resource semantic
+    // conventions. Inlined (mirroring the OTel SDK's own Resource class) instead of
+    // packing the semconv jar for this single constant.
+    private static final AttributeKey<String> SERVICE_NAME = AttributeKey.stringKey("service.name");
     private static final PrintStream console = System.out;
 
     // Protocol constants
@@ -249,7 +252,7 @@ public class OtelTracerProvider implements TracerProvider {
                 }
 
                 String attributeKey = normalizeAttributeKey(key.getValue());
-                if ("service.name".equals(attributeKey)) {
+                if (SERVICE_NAME.getKey().equals(attributeKey)) {
                     resolvedServiceName = value.getValue();
                 } else {
                     builder.put(attributeKey, value.getValue());
