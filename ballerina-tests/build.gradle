@@ -166,6 +166,7 @@ task ballerinaTest {
                     new File("${project.projectDir}/${packageDir}/tests/configs/${configFile}").text
             exec {
                 workingDir "${project.projectDir}/${packageDir}"
+                environment "BALLERINA_HOME_DIR", rootProject.ext.ballerinaHomeDir
                 environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                     commandLine 'cmd', '/c',
