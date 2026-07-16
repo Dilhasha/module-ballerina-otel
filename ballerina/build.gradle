@@ -92,31 +92,9 @@ def artifactBallerinaDocs = file("${project.projectDir}/build/docs_parent/")
 def artifactCacheParent = file("${project.buildDir}/cache_parent/")
 def artifactLibParent = file("${project.buildDir}/lib_parent/")
 def tomlVersion = stripBallerinaExtensionVersion("${project.version}")
-def ballerinaCentralAccessToken = System.getenv('BALLERINA_CENTRAL_ACCESS_TOKEN')
 def artifactJar = file("$project.projectDir/target/cache/${packageOrg}/${packageName}/${tomlVersion}/java21/")
 def platform = "java21"
 def skipTests = false
-
-def shouldPublishToCentral = {
-    project.hasProperty('publishToCentral') && project.publishToCentral.toBoolean()
-}
-
-def pushToCentralIfRequested = {
-    if (!shouldPublishToCentral()) {
-        return
-    }
-    if (project.version.toString().split("-").length > 1) {
-        throw new InvalidUserDataException("Central publish requires a stable project version without qualifiers: " +
-                project.version)
-    }
-    if (ballerinaCentralAccessToken?.trim()) {
-        println("Publishing to the ballerina central...")
-        def env = "JAVA_OPTS -DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
-        executeBalCommand ("push", "${project.projectDir}", env)
-    } else {
-        throw new InvalidUserDataException("Central Access Token is not present")
-    }
-}
 
 def stripBallerinaExtensionVersion(String extVersion) {
     if (extVersion.matches(project.ext.timestampedVersionRegex)) {
@@ -210,8 +188,6 @@ task ballerinaBuild {
             from file("$project.projectDir/target/apidocs/${packageName}")
             into file("$project.buildDir/docs_parent/docs/${packageName}")
         }
-
-        pushToCentralIfRequested()
     }
 
     outputs.dir artifactCacheParent
