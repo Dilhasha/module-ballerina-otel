@@ -98,7 +98,7 @@ the current run.
 
 | Path | Purpose |
 |------|---------|
-| `build.gradle` | Publishes the module to the local repo, manages the collector container, runs `bal test` once per scenario using the Ballerina distribution on `PATH` |
+| `build.gradle` | Unpacks the configured Ballerina distribution, publishes the module to the local repo, manages the collector container, runs `bal test` once per scenario |
 | `otel-collector-tests/main.bal` | Instrumented HTTP service: `GET /test/sum`, `GET /test/failure` (intentionally returns an error → 500, for error-span coverage), plus an `@observe:Observable` class method |
 | `otel-collector-tests/tests/configs/*.toml` | Per-scenario configs (`default`, `grpc`, `sampler_off`, `parentbased`, `unreachable`): scenario/service-name selectors plus `[ballerina.otel]` endpoints, protocols, sampler, 3 s metric export interval, resource attributes |
 | `otel-collector-tests/tests/Config.toml` | **Generated** per run from `tests/configs/` by the Gradle build (gitignored) |
@@ -244,14 +244,15 @@ spans (same set as the collector export scenario, with the
 ./gradlew :otel-extension-ballerina-tests:test -Pdebug=5005
 ```
 
-To run a single scenario manually, install Ballerina 2201.13.4, copy its config
-into place, and run `bal` with the matching group:
+To run a single scenario manually, unpack the configured Ballerina distribution,
+copy its config into place, and run `bal` with the matching group:
 
 ```bash
+./gradlew unpackJballerinaTools
 cd ballerina-tests/otel-collector-tests
 cp tests/configs/grpc.toml tests/Config.toml
 JAVA_OPTS="-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true" \
-    bal test --groups export
+    ../../build/extracted-distributions/jballerina-tools-*/bin/bal test --groups export
 ```
 
 The Jaeger package works the same way (start the Jaeger container from
@@ -262,14 +263,14 @@ groups):
 cd ballerina-tests/jaeger-tests
 cp tests/configs/default.toml tests/Config.toml
 JAVA_OPTS="-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true" \
-    bal test
+    ../../build/extracted-distributions/jballerina-tools-*/bin/bal test
 ```
 
 Notes:
 
-- The tests expect Ballerina 2201.13.4 on `PATH`, matching `ballerinaLangVersion`,
-  because the module's OTel SDK jars require the `opentelemetry-api` version shaded
-  into that distribution's `ballerina-rt`.
+- The tests use the Ballerina distribution declared by `ballerinaLangVersion`,
+  because the module's OTel SDK jars require the `opentelemetry-api` version
+  shaded into that distribution's `ballerina-rt`.
 - `otel-collector-tests/Ballerina.toml` is regenerated from
   `build-config/resources/tests/Ballerina.toml` with the current module version
   (`updateTomlVersions`), and the module bala is published to the local repository first.
