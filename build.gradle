@@ -75,6 +75,7 @@ dependencies {
 
 def extractedDistributions = "${buildDir}/extracted-distributions"
 ext.distributionBinPath = "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/bin"
+ext.ballerinaHomeDir = "${buildDir}/ballerina-home"
 
 task unpackJballerinaTools(type: Copy) {
     from {
@@ -135,9 +136,12 @@ subprojects {
 
 def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
-def executeBalCommand(String command, String dir, env = "") {
+def executeBalCommand(String command, String dir, env = "", String ballerinaHomeDir = rootProject.ext.ballerinaHomeDir) {
     def balCommand = Os.isFamily(Os.FAMILY_WINDOWS) ?
             "${rootProject.ext.distributionBinPath}/bal.bat" : "${rootProject.ext.distributionBinPath}/bal"
+    if (ballerinaHomeDir == rootProject.ext.ballerinaHomeDir) {
+        file("${ballerinaHomeDir}/Settings.toml").delete()
+    }
     try {
         exec {
             workingDir dir
@@ -145,6 +149,7 @@ def executeBalCommand(String command, String dir, env = "") {
                 def envPair = env.split(" ", 2)
                 environment envPair[0], envPair.length > 1 ? envPair[1] : ""
             }
+            environment "BALLERINA_HOME_DIR", ballerinaHomeDir
             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                 commandLine 'cmd', '/c', "${balCommand} ${command} && exit %%ERRORLEVEL%%"
             } else {
