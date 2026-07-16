@@ -147,6 +147,7 @@ task stopJaeger {
 task ballerinaTest {
     dependsOn ':otel-extension-ballerina:ballerinaBuild'
     dependsOn ':otel-extension-ballerina:publishBalaFileToLocal'
+    dependsOn rootProject.tasks.unpackJballerinaTools
     dependsOn updateTomlVersions
     dependsOn startOtelCollector
     dependsOn startJaeger
@@ -167,9 +168,10 @@ task ballerinaTest {
                 workingDir "${project.projectDir}/${packageDir}"
                 environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                    commandLine 'cmd', '/c', "bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
+                    commandLine 'cmd', '/c',
+                            "${rootProject.distributionBinPath}/bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
                 } else {
-                    commandLine 'sh', '-c', "bal test ${testParams}"
+                    commandLine 'sh', '-c', "${rootProject.distributionBinPath}/bal test ${testParams}"
                 }
             }
         }

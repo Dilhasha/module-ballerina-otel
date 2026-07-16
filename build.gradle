@@ -61,6 +61,30 @@ allprojects {
     }
 }
 
+configurations {
+    jbalTools {
+        transitive = false
+    }
+}
+
+dependencies {
+    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaLangVersion}") {
+        transitive = false
+    }
+}
+
+def extractedDistributions = "${buildDir}/extracted-distributions"
+ext.distributionBinPath = "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/bin"
+
+task unpackJballerinaTools(type: Copy) {
+    from {
+        configurations.jbalTools.collect { artifact ->
+            zipTree(artifact)
+        }
+    }
+    into new File(extractedDistributions)
+}
+
 subprojects {
     apply plugin: 'java-library'
     apply plugin: 'checkstyle'
@@ -112,6 +136,8 @@ subprojects {
 def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
 def executeBalCommand(String command, String dir, env = "") {
+    def balCommand = Os.isFamily(Os.FAMILY_WINDOWS) ?
+            "${rootProject.ext.distributionBinPath}/bal.bat" : "${rootProject.ext.distributionBinPath}/bal"
     try {
         exec {
             workingDir dir
@@ -120,9 +146,9 @@ def executeBalCommand(String command, String dir, env = "") {
                 environment envPair[0], envPair.length > 1 ? envPair[1] : ""
             }
             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                commandLine 'cmd', '/c', "bal.bat ${command} && exit %%ERRORLEVEL%%"
+                commandLine 'cmd', '/c', "${balCommand} ${command} && exit %%ERRORLEVEL%%"
             } else {
-                commandLine 'sh', '-c', "bal ${command}"
+                commandLine 'sh', '-c', "${balCommand} ${command}"
             }
         }
     } catch (Exception e) {

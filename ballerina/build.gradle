@@ -158,6 +158,7 @@ task updateTomlVersions {
 
 
 task ballerinaBuild {
+    dependsOn rootProject.tasks.unpackJballerinaTools
     dependsOn updateTomlVersions
     dependsOn configurations.nativeJar
     dependsOn configurations.externalJars
@@ -185,7 +186,7 @@ task ballerinaBuild {
         }
 
         // build bala file
-        executeBalCommand ("build", "${project.projectDir}")
+        executeBalCommand ("build ${additionalBuildParams}".trim(), "${project.projectDir}")
         executeBalCommand ("pack", "${project.projectDir}")
 
         // extract bala file to artifact cache directory
@@ -276,18 +277,11 @@ task extractBallerinaClassFiles(type: Copy) {
 
 task publishBalaFileToLocal {
     dependsOn ballerinaBuild
+    dependsOn rootProject.tasks.unpackJballerinaTools
 
     doLast {
         if (!skipTests) {
-            exec {
-                workingDir "${project.rootDir}/ballerina"
-                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                    commandLine 'cmd', '/c', "bal.bat push --repository=local" +
-                            " && exit %%ERRORLEVEL%%"
-                } else {
-                    commandLine 'sh', '-c', "bal push --repository=local"
-                }
-            }
+            executeBalCommand("push --repository=local", "${project.rootDir}/ballerina")
         }
     }
 }
