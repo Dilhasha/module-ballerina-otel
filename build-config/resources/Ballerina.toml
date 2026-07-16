@@ -49,10 +49,10 @@ artifactId = "opentelemetry-sdk-common"
 version = "@opentelemetrySDK.version@"
 
 [[platform.java21.dependency]]
-path = "./lib/opentelemetry-common-@opentelemetry.version@.jar"
+path = "./lib/opentelemetry-extension-incubator-@opentelemetryIncubator.version@.jar"
 groupId = "io.opentelemetry"
-artifactId = "opentelemetry-common"
-version = "@opentelemetry.version@"
+artifactId = "opentelemetry-extension-incubator"
+version = "@opentelemetryIncubator.version@"
 
 # NOTE: opentelemetry-api and opentelemetry-context are intentionally not
 # packed: ballerina-rt shades both artifacts and its copies always win
@@ -86,9 +86,15 @@ artifactId = "opentelemetry-exporter-sender-okhttp"
 version = "@opentelemetryExporter.version@"
 
 [[platform.java21.dependency]]
-path = "./lib/okhttp-jvm-@okhttp.version@.jar"
+path = "./lib/opentelemetry-sdk-extension-autoconfigure-spi-@opentelemetryExporter.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-sdk-extension-autoconfigure-spi"
+version = "@opentelemetryExporter.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/okhttp-@okhttp.version@.jar"
 groupId = "com.squareup.okhttp3"
-artifactId = "okhttp-jvm"
+artifactId = "okhttp"
 version = "@okhttp.version@"
 
 [[platform.java21.dependency]]

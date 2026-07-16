@@ -39,16 +39,10 @@ def collectorComposeFileArgs = "-f ${collectorComposeFile}" +
 
 // The module packs OTel SDK jars that need the opentelemetry-api version shaded
 // into ballerina-rt of the ballerinaLangVersion distribution, so the tests must
-// run on that exact distribution (a locally installed `bal` may be older).
-//
-// TODO: Simplify once a GA distribution ships the opentelemetry-api version the
-// packed SDK jars need (currently only the timestamped ballerinaLangVersion
-// build has it). GA distributions are full (ballerinai/observe packed), so both
-// workarounds can then be dropped together: remove unpackJballerinaTools /
-// unpackStdLibs / copyStdlibsToDistribution and the jbalTools/ballerinaStdLibs
-// dependencies, and run `bal test` from PATH instead of distributionBinPath.
-// Keep a fast-fail check that `bal version` matches ballerinaLangVersion, since
-// an older local `bal` fails only at runtime with confusing linkage errors.
+// run on that exact distribution (a locally installed `bal` may differ).
+// The ballerinai/observe injection below is only required for bare timestamped
+// distributions (GA distributions already pack it); it is kept because it is
+// harmless on a full distribution and lets the same build run on both.
 def extractedDistributions = "${project.buildDir}/extracted-distributions"
 def distributionBinPath = "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/bin"
 

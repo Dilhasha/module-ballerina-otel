@@ -57,7 +57,7 @@ configurations {
     // opentelemetry-exporter-sender-okhttp bump pulls a different okhttp/okio.
     all {
         resolutionStrategy {
-            force "com.squareup.okhttp3:okhttp-jvm:${okhttpVersion}"
+            force "com.squareup.okhttp3:okhttp:${okhttpVersion}"
             force "com.squareup.okio:okio-jvm:${okioVersion}"
             force "com.squareup.okio:okio:${okioVersion}"
         }
@@ -80,7 +80,7 @@ dependencies {
     testImplementation "io.opentelemetry:opentelemetry-sdk-metrics:${openTelemetrySDKVersion}"
     testImplementation "io.opentelemetry:opentelemetry-sdk-common:${openTelemetrySDKVersion}"
     testImplementation "io.opentelemetry:opentelemetry-exporter-otlp:${openTelemetryExporterVersion}"
-    testImplementation "com.squareup.okhttp3:okhttp-jvm:${okhttpVersion}"
+    testImplementation "com.squareup.okhttp3:okhttp:${okhttpVersion}"
     testImplementation "com.squareup.okio:okio-jvm:${okioVersion}"
     testRuntimeOnly "io.opentelemetry:opentelemetry-exporter-sender-okhttp:${openTelemetryExporterVersion}"
     testImplementation "org.testng:testng:${testngVersion}"
@@ -92,7 +92,7 @@ dependencies {
     testImplementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
 
     kotlinStdlibOriginal "org.jetbrains.kotlin:kotlin-stdlib:${kotlinStdlibVersion}"
-    shrinkRoots "com.squareup.okhttp3:okhttp-jvm:${okhttpVersion}"
+    shrinkRoots "com.squareup.okhttp3:okhttp:${okhttpVersion}"
     shrinkRoots "com.squareup.okio:okio-jvm:${okioVersion}"
     // Nullability annotations (class retention) referenced by kotlin-stdlib/okhttp/okio
     shrinkLibraries "org.jetbrains:annotations:13.0"
