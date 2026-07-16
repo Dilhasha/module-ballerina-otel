@@ -16,13 +16,16 @@
 
 import ballerina/http;
 import ballerina/lang.runtime;
+import ballerina/tcp;
 import ballerina/test;
 
 // Scenario selection. Each scenario is a separate `bal test` invocation with
 // its own Config.toml (see tests/configs and ballerina-tests/build.gradle):
-//   - "export":      export assertions (run twice: OTLP/HTTP and OTLP/gRPC)
-//   - "sampler-off": always_off sampler; no spans, but metrics still flow
-//   - "unreachable": exporters point at a dead endpoint; app must keep serving
+//   - "export":       export assertions (run twice: OTLP/HTTP and OTLP/gRPC)
+//   - "sampler-off":  always_off sampler; no spans, but metrics still flow
+//   - "parent-based": parentbased_always_on sampler (the module default);
+//                     the remote parent's traceparent sampled flag is honored
+//   - "unreachable":  exporters point at a dead endpoint; app must keep serving
 configurable string scenario = "export";
 // Each scenario configures a distinct service.name resource attribute; all
 // span/metric lookups filter on it so that late or retried exports from a
@@ -32,7 +35,18 @@ configurable string expectedServiceName = "ballerina-otel-collector-tests";
 
 const string SCENARIO_EXPORT = "export";
 const string SCENARIO_SAMPLER_OFF = "sampler-off";
+const string SCENARIO_PARENT_BASED = "parent-based";
 const string SCENARIO_UNREACHABLE = "unreachable";
+
+// Fabricated W3C trace context values for the "parent-based" scenario. The
+// requests carrying them are sent as raw HTTP over TCP: the instrumented
+// http:Client would overwrite a user-supplied traceparent header with its
+// own span context, so a plain socket is the only way to control the remote
+// parent's sampled flag precisely.
+const string SAMPLED_PARENT_TRACE_ID = "11111111222222223333333344444444";
+const string SAMPLED_PARENT_SPAN_ID = "1111111122222222";
+const string UNSAMPLED_PARENT_TRACE_ID = "55555555666666667777777788888888";
+const string UNSAMPLED_PARENT_SPAN_ID = "5555555566666666";
 
 const string SPAN_RESOURCE_FUNCTION = "get /sum";
 const string SPAN_ERROR_RESOURCE_FUNCTION = "get /failure";
@@ -145,6 +159,20 @@ function setupScenario() returns error? {
         runtime:sleep(5);
         return;
     }
+    if scenario == SCENARIO_PARENT_BASED {
+        // One request with a sampled remote parent (flag 01) and one with an
+        // unsampled remote parent (flag 00), each with a fabricated, unique
+        // trace ID. Wait until the sampled trace arrives, then allow a grace
+        // period so spans of the unsampled trace would have had time to flow
+        // through the pipeline before asserting none arrived. (The /test/sum
+        // request above, sent without a traceparent, covers the root-span
+        // fallback of the parent-based sampler.)
+        check sendRawSumRequest(string `00-${SAMPLED_PARENT_TRACE_ID}-${SAMPLED_PARENT_SPAN_ID}-01`);
+        check sendRawSumRequest(string `00-${UNSAMPLED_PARENT_TRACE_ID}-${UNSAMPLED_PARENT_SPAN_ID}-00`);
+        check awaitSpanWithTraceId(SAMPLED_PARENT_TRACE_ID);
+        runtime:sleep(5);
+        return;
+    }
     if scenario == SCENARIO_UNREACHABLE {
         // Give the exporters time to attempt (and fail) both the span batch
         // export and at least one periodic metric export.
@@ -187,7 +215,7 @@ function awaitMetric(string name) returns error? {
             metricExportCount = getMetricExports().length(), receivedMetricNames = collectMetricNames());
 }
 
-@test:Config {groups: ["export", "sampler-off", "unreachable"]}
+@test:Config {groups: ["export", "sampler-off", "parent-based", "unreachable"]}
 function testServiceResponse() {
     test:assertEquals(sumResponse, "Sum: 53");
 }
@@ -388,6 +416,46 @@ function testMetricsStillExportedWhenSamplerAlwaysOff() {
             string `metric "${METRIC_REQUESTS_TOTAL}" not received by the collector although the trace sampler must not affect metrics`);
 }
 
+// --- "parent-based" scenario ---
+
+@test:Config {groups: ["parent-based"]}
+function testRemoteParentSampledDecisionHonored() {
+    // The server span must continue the remote trace: same trace ID as the
+    // fabricated traceparent and the fabricated span ID as its direct parent.
+    CollectedSpan[] spans = findSpansByTraceId(SAMPLED_PARENT_TRACE_ID);
+    test:assertTrue(spans.length() > 0,
+            "expected the request with a sampled remote parent (traceparent flag 01) to be sampled, " +
+            string `but no spans with trace ID ${SAMPLED_PARENT_TRACE_ID} were received by the collector`);
+    CollectedSpan[] resourceSpans = spans.filter(collectedSpan => collectedSpan.span.name == SPAN_RESOURCE_FUNCTION);
+    test:assertTrue(resourceSpans.length() > 0,
+            string `span "${SPAN_RESOURCE_FUNCTION}" not found in remote trace ${SAMPLED_PARENT_TRACE_ID} ` +
+            string `(received: ${spans.map(collectedSpan => collectedSpan.span.name).toString()})`);
+    test:assertEquals(resourceSpans[0].span?.parentSpanId, SAMPLED_PARENT_SPAN_ID,
+            string `span "${SPAN_RESOURCE_FUNCTION}" is not a direct child of the remote parent span`);
+}
+
+@test:Config {groups: ["parent-based"]}
+function testRemoteParentUnsampledDecisionHonored() {
+    CollectedSpan[] spans = findSpansByTraceId(UNSAMPLED_PARENT_TRACE_ID);
+    test:assertEquals(spans.length(), 0,
+            "expected the request with an unsampled remote parent (traceparent flag 00) to be dropped, " +
+            string `but received: ${spans.map(collectedSpan => collectedSpan.span.name).toString()}`);
+}
+
+@test:Config {groups: ["parent-based"]}
+function testRootSpanSampledWhenNoRemoteParent() {
+    // The instrumented /test/sum request of setupScenario carries no
+    // externally fabricated traceparent, so its trace starts at a root span
+    // in this process — the parent-based sampler must fall back to its
+    // always_on delegate and sample it.
+    CollectedSpan[] rootTraceSpans = findSpansByName(SPAN_RESOURCE_FUNCTION)
+        .filter(collectedSpan => collectedSpan.span.traceId.toLowerAscii() != SAMPLED_PARENT_TRACE_ID
+                && collectedSpan.span.traceId.toLowerAscii() != UNSAMPLED_PARENT_TRACE_ID);
+    test:assertTrue(rootTraceSpans.length() > 0,
+            string `expected the traceparent-less request to be sampled as a root trace, but no ` +
+            string `"${SPAN_RESOURCE_FUNCTION}" span outside the fabricated traces was received by the collector`);
+}
+
 // --- "unreachable" scenario ---
 
 @test:Config {groups: ["unreachable"]}
@@ -465,6 +533,46 @@ function findSpanBySpanId(string spanId) returns CollectedSpan? {
         }
     }
     return ();
+}
+
+function findSpansByTraceId(string traceId) returns CollectedSpan[] {
+    // OTLP/JSON encodes trace IDs as hex; compare case-insensitively.
+    return collectSpans().filter(collectedSpan => collectedSpan.span.traceId.toLowerAscii() == traceId.toLowerAscii());
+}
+
+function awaitSpanWithTraceId(string traceId) returns error? {
+    int attempt = 0;
+    while attempt < 90 {
+        if findSpansByTraceId(traceId).length() > 0 {
+            return;
+        }
+        runtime:sleep(1);
+        attempt += 1;
+    }
+    string[] receivedSpanNames = collectSpans().map(collectedSpan => collectedSpan.span.name);
+    return error(string `timed out waiting for spans of trace ${traceId} to reach the test sink`,
+            traceExportCount = getTraceExports().length(), receivedSpanNames = receivedSpanNames);
+}
+
+// Sends GET /test/sum as a raw HTTP/1.1 request over a plain TCP socket with
+// the given traceparent header. The instrumented http:Client cannot be used
+// here: it injects its own span context, overwriting the traceparent header
+// the parent-based sampler tests need to control.
+function sendRawSumRequest(string traceparent) returns error? {
+    tcp:Client socket = check new ("localhost", 9091);
+    string request = "GET /test/sum HTTP/1.1\r\n"
+        + "Host: localhost:9091\r\n"
+        + string `traceparent: ${traceparent}` + "\r\n"
+        + "Connection: close\r\n"
+        + "\r\n";
+    check socket->writeBytes(request.toBytes());
+    readonly & byte[] response = check socket->readBytes();
+    check socket->close();
+    string statusLine = check string:fromBytes(response);
+    if !statusLine.startsWith("HTTP/1.1 200") {
+        return error("unexpected response to the raw /test/sum request",
+                traceparent = traceparent, response = statusLine);
+    }
 }
 
 function collectMetrics() returns OtlpMetric[] {

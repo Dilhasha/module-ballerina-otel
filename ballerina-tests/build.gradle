@@ -23,8 +23,13 @@ description = 'Ballerina - Otel Extension - Ballerina Tests'
 def testPackage = "otel-collector-tests"
 def ballerinaTomlFile = new File("${project.projectDir}/${testPackage}/Ballerina.toml")
 def ballerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/tests/Ballerina.toml")
+def jaegerTestPackage = "jaeger-tests"
+def jaegerBallerinaTomlFile = new File("${project.projectDir}/${jaegerTestPackage}/Ballerina.toml")
+def jaegerBallerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/tests/BallerinaJaeger.toml")
 def collectorContainerName = "otel-collector-test"
 def collectorComposeFile = "${project.projectDir}/resources/otel-collector/docker-compose.yml"
+def jaegerContainerName = "jaeger-test"
+def jaegerComposeFile = "${project.projectDir}/resources/jaeger/docker-compose.yml"
 // On plain Linux docker hosts, host.docker.internal must be mapped to the
 // host gateway explicitly (Docker Desktop / Rancher Desktop resolve it
 // natively, and the static mapping would break their resolution).
@@ -113,6 +118,8 @@ task updateTomlVersions {
     doLast {
         def newBallerinaToml = ballerinaTomlFilePlaceHolder.text.replace("@toml.version@", tomlVersion)
         ballerinaTomlFile.text = newBallerinaToml
+        def newJaegerBallerinaToml = jaegerBallerinaTomlFilePlaceHolder.text.replace("@toml.version@", tomlVersion)
+        jaegerBallerinaTomlFile.text = newJaegerBallerinaToml
     }
 }
 
@@ -157,6 +164,47 @@ task stopOtelCollector {
     }
 }
 
+task startJaeger {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${jaegerContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (!stdOut.toString().contains(jaegerContainerName)) {
+                println "Starting Jaeger"
+                exec {
+                    commandLine 'sh', '-c', "docker compose -f ${jaegerComposeFile} up -d"
+                }
+                sleep(10 * 1000)
+            } else {
+                println "Jaeger is already running"
+            }
+        }
+    }
+}
+
+task stopJaeger {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${jaegerContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (stdOut.toString().contains(jaegerContainerName)) {
+                println "Stopping Jaeger"
+                exec {
+                    commandLine 'sh', '-c', "docker compose -f ${jaegerComposeFile} down"
+                }
+            } else {
+                println "Jaeger is not running"
+            }
+        }
+    }
+}
+
 task ballerinaTest {
     dependsOn ':otel-extension-ballerina:ballerinaBuild'
     dependsOn ':otel-extension-ballerina:publishBalaFileToLocal'
@@ -164,21 +212,22 @@ task ballerinaTest {
     dependsOn copyStdlibsToDistribution
     dependsOn updateTomlVersions
     dependsOn startOtelCollector
+    dependsOn startJaeger
     finalizedBy stopOtelCollector
+    finalizedBy stopJaeger
 
     doLast {
-        def scenarioConfigsDir = "${project.projectDir}/${testPackage}/tests/configs"
-        def testsConfigFile = new File("${project.projectDir}/${testPackage}/tests/Config.toml")
         // Runs `bal test` once per scenario. Each scenario is a separate
         // invocation because the otel exporter configuration is fixed for the
         // lifetime of a run. `bal test` ignores a caller-provided
         // BAL_CONFIG_FILES environment variable, so the scenario config is
         // copied to tests/Config.toml (which Testerina always picks up) and
         // the matching test cases are selected through --groups.
-        def runBalTest = { String testParams, String configFile ->
-            testsConfigFile.text = new File("${scenarioConfigsDir}/${configFile}").text
+        def runBalTestIn = { String packageDir, String testParams, String configFile ->
+            new File("${project.projectDir}/${packageDir}/tests/Config.toml").text =
+                    new File("${project.projectDir}/${packageDir}/tests/configs/${configFile}").text
             exec {
-                workingDir "${project.projectDir}/${testPackage}"
+                workingDir "${project.projectDir}/${packageDir}"
                 environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                     commandLine 'cmd', '/c', "${distributionBinPath}/bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
@@ -186,6 +235,9 @@ task ballerinaTest {
                     commandLine 'sh', '-c', "${distributionBinPath}/bal test ${testParams}"
                 }
             }
+        }
+        def runBalTest = { String testParams, String configFile ->
+            runBalTestIn(testPackage, testParams, configFile)
         }
 
         if (project.hasProperty("debug")) {
@@ -200,8 +252,12 @@ task ballerinaTest {
         runBalTest("--groups export", "grpc.toml")
         println "Running Ballerina tests: always_off sampler scenario"
         runBalTest("--groups sampler-off", "sampler_off.toml")
+        println "Running Ballerina tests: parentbased_always_on sampler scenario"
+        runBalTest("--groups parent-based", "parentbased.toml")
         println "Running Ballerina tests: unreachable endpoint scenario"
         runBalTest("--groups unreachable", "unreachable.toml")
+        println "Running Ballerina tests: Jaeger end-to-end scenario"
+        runBalTestIn(jaegerTestPackage, "", "default.toml")
     }
 }
 
@@ -217,4 +273,8 @@ clean {
     delete "${project.projectDir}/${testPackage}/ballerina-internal.log"
     // Generated per scenario run from tests/configs/ by the ballerinaTest task.
     delete "${project.projectDir}/${testPackage}/tests/Config.toml"
+    delete "${project.projectDir}/${jaegerTestPackage}/target"
+    delete "${project.projectDir}/${jaegerTestPackage}/Ballerina.lock"
+    delete "${project.projectDir}/${jaegerTestPackage}/ballerina-internal.log"
+    delete "${project.projectDir}/${jaegerTestPackage}/tests/Config.toml"
 }

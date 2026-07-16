@@ -298,19 +298,6 @@ dependencies = [
 
 [[package]]
 org = "ballerina"
-name = "tcp"
-version = "1.13.6"
-scope = "testOnly"
-dependencies = [
-	{org = "ballerina", name = "crypto"},
-	{org = "ballerina", name = "jballerina.java"}
-]
-modules = [
-	{org = "ballerina", packageName = "tcp", moduleName = "tcp"}
-]
-
-[[package]]
-org = "ballerina"
 name = "test"
 version = "0.0.0"
 scope = "testOnly"
@@ -338,6 +325,9 @@ version = "2.6.2"
 dependencies = [
 	{org = "ballerina", name = "jballerina.java"}
 ]
+modules = [
+	{org = "ballerina", packageName = "url", moduleName = "url"}
+]
 
 [[package]]
 org = "ballerina"
@@ -364,18 +354,18 @@ modules = [
 
 [[package]]
 org = "ballerinax"
-name = "otel_collector_tests"
+name = "otel_jaeger_tests"
 version = "0.1.0"
 dependencies = [
 	{org = "ballerina", name = "http"},
 	{org = "ballerina", name = "lang.runtime"},
 	{org = "ballerina", name = "observe"},
 	{org = "ballerina", name = "otel"},
-	{org = "ballerina", name = "tcp"},
 	{org = "ballerina", name = "test"},
+	{org = "ballerina", name = "url"},
 	{org = "ballerinai", name = "observe"}
 ]
 modules = [
-	{org = "ballerinax", packageName = "otel_collector_tests", moduleName = "otel_collector_tests"}
+	{org = "ballerinax", packageName = "otel_jaeger_tests", moduleName = "otel_jaeger_tests"}
 ]
 

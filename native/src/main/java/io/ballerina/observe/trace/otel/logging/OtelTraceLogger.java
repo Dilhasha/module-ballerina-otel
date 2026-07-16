@@ -27,8 +27,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public final class OtelTraceLogger {
-    public static final String OTEL_TRACE_LOG = "otel.tracelog";
-    private static final Logger traceLogger = Logger.getLogger(OTEL_TRACE_LOG);
+    // Instance-scoped anonymous logger so that concurrently live OtelTraceLogger instances
+    // (e.g. re-initialization or parallel tests) cannot race on a shared logger's handler
+    // configuration. An anonymous logger is not registered in the global LogManager, so it
+    // is private to this instance.
+    private final Logger traceLogger = Logger.getAnonymousLogger();
     // Strong reference so the JUL logger (and its handlers) are not garbage collected.
     // Warnings and errors emitted by the OpenTelemetry SDK (e.g. the reason an OTLP export
     // failed) are routed to the same handlers as the trace log so that they are visible
@@ -36,12 +39,10 @@ public final class OtelTraceLogger {
     private static final Logger otelSdkLogger = Logger.getLogger("io.opentelemetry");
 
     public OtelTraceLogger(boolean traceLogConsole, Path logFilePath) {
-        for (Handler handler : traceLogger.getHandlers()) {
-            traceLogger.removeHandler(handler);
-            handler.close();
-        }
-        for (Handler handler : otelSdkLogger.getHandlers()) {
-            otelSdkLogger.removeHandler(handler);
+        synchronized (otelSdkLogger) {
+            for (Handler handler : otelSdkLogger.getHandlers()) {
+                otelSdkLogger.removeHandler(handler);
+            }
         }
         if (traceLogConsole) {
             ConsoleHandler consoleHandler = new ConsoleHandler();
@@ -80,6 +81,10 @@ public final class OtelTraceLogger {
 
     public void printInfo(String message) {
         traceLogger.log(Level.INFO, message);
+    }
+
+    public void printDebug(String message) {
+        traceLogger.log(Level.CONFIG, message);
     }
 
     public void printSevere(String message) {

@@ -1,0 +1,32 @@
+# parentbased_always_on sampler scenario (the module default): the sampler
+# must honor the sampling decision of a remote parent from the incoming W3C
+# traceparent header — spans of a request with an unsampled remote parent
+# (sampled flag 00) must not be exported, spans of a request with a sampled
+# remote parent (flag 01) must be, and requests without a traceparent (root
+# spans) fall back to always_on. Copied to tests/Config.toml by the Gradle
+# build. A distinct service.name isolates this run's telemetry from any
+# late/retried exports of other scenario runs still in the collector.
+scenario = "parent-based"
+expectedServiceName = "ballerina-otel-parentbased-tests"
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "otel"
+metricsEnabled = true
+metricsReporter = "otel"
+
+[ballerina.otel]
+tracesEndpoint = "http://localhost:14318/v1/traces"
+tracesProtocol = "http"
+tracesSampler = "parentbased_always_on"
+metricsEndpoint = "http://localhost:14318/v1/metrics"
+metricsProtocol = "http"
+metricsExportIntervalMillis = 3000
+
+[ballerina.otel.tracesResourceAttributes]
+"service.name" = "ballerina-otel-parentbased-tests"
+"deployment.environment" = "test"
+
+[ballerina.otel.metricsResourceAttributes]
+"service.name" = "ballerina-otel-parentbased-tests"
+"deployment.environment" = "test"

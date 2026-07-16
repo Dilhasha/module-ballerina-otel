@@ -17,6 +17,7 @@
  */
 package io.ballerina.observe.trace.otel.sizetest;
 
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -32,7 +33,15 @@ public final class ReceivedRequest {
 
     ReceivedRequest(String path, Map<String, String> headers, byte[] body) {
         this.path = path;
-        this.headers = headers == null ? Map.of() : Map.copyOf(headers);
+        if (headers == null) {
+            this.headers = Map.of();
+        } else {
+            // Store keys lowercased so that header() lookups are case-insensitive
+            // regardless of the casing the mock collector captured them with.
+            Map<String, String> normalized = new HashMap<>();
+            headers.forEach((key, value) -> normalized.put(key.toLowerCase(Locale.ROOT), value));
+            this.headers = Map.copyOf(normalized);
+        }
         this.body = body.clone();
     }
 

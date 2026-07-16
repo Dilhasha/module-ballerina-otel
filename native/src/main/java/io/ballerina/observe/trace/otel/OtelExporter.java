@@ -49,7 +49,11 @@ public final class OtelExporter implements SpanExporter {
     public CompletableResultCode export(Collection<SpanData> spans) {
         if (tracerLogger.isLoggable(Level.INFO)) {
             tracerLogger.printInfo("Attempting to export " + spans.size() + " spans to " + endpoint);
-            tracerLogger.printInfo("Span Payload: " + spans);
+        }
+        // The full span payload may contain user-set attributes with sensitive data,
+        // so it is only dumped at the stricter debug level.
+        if (tracerLogger.isLoggable(Level.CONFIG)) {
+            tracerLogger.printDebug("Span Payload: " + spans);
         }
         CompletableResultCode result = exporter.export(spans);
         result.whenComplete(() -> {

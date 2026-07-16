@@ -1,0 +1,27 @@
+# Jaeger end-to-end scenario: OTLP/gRPC export straight into a real Jaeger
+# all-in-one instance; the tests assert through the Jaeger Query API. This
+# config is copied to tests/Config.toml by the Gradle build before the
+# `bal test` invocation (same mechanism as the otel-collector-tests; see
+# ballerina-tests/build.gradle). Do not edit tests/Config.toml directly: it is
+# generated and overwritten on every run.
+expectedServiceName = "ballerina-otel-jaeger-tests"
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "otel"
+# Jaeger ingests traces only, so metrics stay disabled in this scenario.
+
+[ballerina.otel]
+# 24317 is Jaeger's OTLP/gRPC receiver on the host; the non-default port
+# avoids clashes with local observability agents on 4317 (see
+# resources/jaeger/docker-compose.yml).
+tracesEndpoint = "http://localhost:24317"
+tracesProtocol = "grpc"
+tracesSampler = "always_on"
+# Exercises the comma-separated header string parsing on the gRPC path
+# against a real backend (Jaeger ignores unknown request headers).
+tracesExporterHeaders = "x-scenario=jaeger"
+
+[ballerina.otel.tracesResourceAttributes]
+"service.name" = "ballerina-otel-jaeger-tests"
+"deployment.environment" = "test"

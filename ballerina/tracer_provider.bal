@@ -14,7 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import ballerina/io;
 import ballerina/jballerina.java;
 import ballerina/log as _;
 import ballerina/observe;
@@ -24,29 +23,23 @@ function initializeTracing() returns error? {
         return;
     }
 
-    string selectedSamplerType;
+    // Validate sampler type
     string[] validSamplerTypes = [SAMPLER_TYPE_ALWAYS_ON, SAMPLER_TYPE_ALWAYS_OFF, SAMPLER_TYPE_TRACE_ID_RATIO,
             SAMPLER_TYPE_PARENT_BASED_ALWAYS_ON, SAMPLER_TYPE_PARENT_BASED_ALWAYS_OFF,
             SAMPLER_TYPE_PARENT_BASED_TRACE_ID_RATIO, SAMPLER_TYPE_RATE_LIMITING];
-    if (validSamplerTypes.indexOf(tracesSampler) is ()) {
-        selectedSamplerType = DEFAULT_SAMPLER_TYPE;
-        io:println("error: invalid Otel configuration tracesSampler: " + tracesSampler
-            + ". valid values are: always_on, always_off, traceidratio, parentbased_always_on, "
-            + "parentbased_always_off, parentbased_traceidratio, ratelimiting. "
-            + "using default " + DEFAULT_SAMPLER_TYPE + " sampling");
-    } else {
-        selectedSamplerType = tracesSampler;
+    if validSamplerTypes.indexOf(tracesSampler) is () {
+        return error(string `invalid Otel configuration tracesSampler: ${tracesSampler}. Valid values are: always_on, always_off, traceidratio, parentbased_always_on, parentbased_always_off, parentbased_traceidratio, ratelimiting`);
     }
 
     // Validate trace log level
     string lowerLogLevel = tracesLogLevel.toLowerAscii();
-    if (lowerLogLevel != "info" && lowerLogLevel != "debug" && lowerLogLevel != "warn" && lowerLogLevel != "error") {
+    if lowerLogLevel != "info" && lowerLogLevel != "debug" && lowerLogLevel != "warn" && lowerLogLevel != "error" {
         return error(string `invalid Otel configuration tracesLogLevel: ${tracesLogLevel}. Valid values are: info, INFO, debug, DEBUG, warn, WARN, error, ERROR`);
     }
 
     // Validate protocol
     string lowerProtocol = tracesProtocol.toLowerAscii();
-    if (lowerProtocol != "grpc" && lowerProtocol != "http") {
+    if lowerProtocol != "grpc" && lowerProtocol != "http" {
         return error(string `invalid Otel configuration tracesProtocol: ${tracesProtocol}. Valid values are: grpc, GRPC, http, HTTP`);
     }
 
@@ -54,9 +47,11 @@ function initializeTracing() returns error? {
         return error(string `invalid Otel configuration tracesEndpoint: ${tracesEndpoint}. Endpoint must start with http:// or https://`);
     }
 
-    externInitializeConfigurations(tracesEndpoint, selectedSamplerType, tracesSamplerArg,
+    map<string> exporterHeaders = check parseOtlpHeaders(tracesExporterHeaders, "tracesExporterHeaders");
+
+    externInitializeConfigurations(tracesEndpoint, tracesSampler, tracesSamplerArg,
         tracesExporterTimeoutMillis, tracesMaxExportBatchSize, tracesLogConsole, tracesLogFile, lowerLogLevel,
-        tracesExporterHeaders, lowerProtocol, tracesResourceAttributes);
+        exporterHeaders, lowerProtocol, tracesResourceAttributes);
 }
 
 function externInitializeConfigurations(string endpoint, string samplerType,

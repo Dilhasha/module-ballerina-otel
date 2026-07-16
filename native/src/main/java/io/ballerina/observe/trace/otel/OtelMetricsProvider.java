@@ -25,7 +25,6 @@ import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.metrics.Meter;
-import io.opentelemetry.api.metrics.MeterProvider;
 import io.opentelemetry.api.metrics.ObservableDoubleMeasurement;
 import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter;
 import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
@@ -114,15 +113,23 @@ public final class OtelMetricsProvider {
 
             if (COUNTER.equals(point.type)) {
                 nextCounters.computeIfAbsent(point.name, ignored -> new ArrayList<>()).add(point);
-                ensureCounter(point);
             } else if (GAUGE.equals(point.type)) {
                 nextGauges.computeIfAbsent(point.name, ignored -> new ArrayList<>()).add(point);
-                ensureGauge(point);
             }
         }
 
+        // Publish the new snapshots before registering instruments so that a periodic
+        // collection callback firing right after registration never observes a stale
+        // (possibly empty) snapshot for a newly registered instrument.
         counters = Map.copyOf(nextCounters);
         gauges = Map.copyOf(nextGauges);
+
+        for (List<MetricPoint> points : nextCounters.values()) {
+            ensureCounter(points.get(0));
+        }
+        for (List<MetricPoint> points : nextGauges.values()) {
+            ensureGauge(points.get(0));
+        }
     }
 
     private static MetricExporter buildExporter(String endpoint, String protocol,
@@ -130,24 +137,14 @@ public final class OtelMetricsProvider {
         if (PROTOCOL_HTTP.equals(protocol)) {
             var builder = OtlpHttpMetricExporter.builder()
                     .setEndpoint(endpoint)
-                    .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS)
-                    // Disable exporter self-instrumentation. Its default meter provider relies on
-                    // GlobalOpenTelemetry.getOrNoop(), which is missing from the older
-                    // opentelemetry-api bundled in ballerina-rt and breaks exports at runtime.
-                    // TODO: Remove once ballerina-rt ships an updated opentelemetry-api.
-                    // See https://github.com/ballerina-platform/ballerina-lang/issues/44622
-                    .setMeterProvider(MeterProvider::noop);
+                    .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS);
             addHeaders(builder::addHeader, exporterHeaders);
             return builder.build();
         }
 
         var builder = OtlpGrpcMetricExporter.builder()
                 .setEndpoint(endpoint)
-                .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS)
-                // Disable exporter self-instrumentation (see the HTTP exporter above).
-                // TODO: Remove once ballerina-rt ships an updated opentelemetry-api.
-                // See https://github.com/ballerina-platform/ballerina-lang/issues/44622
-                .setMeterProvider(MeterProvider::noop);
+                .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS);
         addHeaders(builder::addHeader, exporterHeaders);
         return builder.build();
     }

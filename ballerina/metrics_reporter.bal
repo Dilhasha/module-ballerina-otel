@@ -33,8 +33,14 @@ function initializeMetrics() returns error? {
         return error("Invalid metrics endpoint. Endpoint must start with http:// or https://");
     }
 
+    if metricsExportIntervalMillis <= 0 {
+        return error(string `Invalid metrics export interval: ${metricsExportIntervalMillis}. Must be a positive number of milliseconds`);
+    }
+
+    map<string> exporterHeaders = check parseOtlpHeaders(metricsExporterHeaders, "metricsExporterHeaders");
+
     externInitializeMetrics(metricsEndpoint, lowerProtocol,
-            metricsExporterHeaders, metricsResourceAttributes, metricsServiceName, metricsExportIntervalMillis,
+            exporterHeaders, metricsResourceAttributes, metricsServiceName, metricsExportIntervalMillis,
             metricsExporterTimeoutMillis, metricsPrefix);
 
     check updateMetricsSnapshot();

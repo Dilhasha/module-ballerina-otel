@@ -36,17 +36,15 @@ tracingProvider="otel"
 
 [ballerina.otel]
 tracesEndpoint = "http://localhost:4317" # Optional Configuration. Default value is http://localhost:4317
-tracesSampler = "always_on"             # Optional Configuration. Default value is always_on
+tracesSampler = "parentbased_always_on" # Optional Configuration. Default value is parentbased_always_on
 tracesSamplerArg = 1                    # Optional Configuration. Default value is 1
-tracesExporterTimeoutMillis = 1000      # Optional Configuration. Default value is 1000
-tracesMaxExportBatchSize = 10000        # Optional Configuration. Default value is 10000
+tracesExporterTimeoutMillis = 10000     # Optional Configuration. Default value is 10000
+tracesMaxExportBatchSize = 512          # Optional Configuration. Default value is 512
 tracesProtocol = "grpc"                 # Optional Configuration. Default value is grpc. Possible values are grpc, http
 tracesLogConsole = false                # Optional Configuration. Default value is false
 tracesLogFile = ""                      # Optional Configuration. Default value is empty string
 tracesLogLevel = "info"                 # Optional Configuration. Default value is info. Possible values are debug, info, warn, error
-
-[ballerina.otel.tracesExporterHeaders]   # Optional. Similar to OTEL_EXPORTER_OTLP_TRACES_HEADERS.
-"api-key" = "key"
+tracesExporterHeaders = "api-key=key"   # Optional. Comma-separated key=value pairs, same format as OTEL_EXPORTER_OTLP_TRACES_HEADERS. Values may be percent-encoded (e.g. value%20with%20spaces)
 
 [ballerina.otel.tracesResourceAttributes]
 "service.name" = "my-service"
@@ -66,16 +64,21 @@ metricsEnabled = true
 metricsReporter = "otel"
 
 [ballerina.otel]
-metricsEndpoint = "http://localhost:4318/v1/metrics" # Optional Configuration. Default value is http://localhost:4318/v1/metrics
-metricsProtocol = "http"                 # Optional Configuration. Default value is http. Possible values are grpc, http
+metricsEndpoint = "http://localhost:4317" # Optional Configuration. Default value is http://localhost:4317
+metricsProtocol = "grpc"                 # Optional Configuration. Default value is grpc. Possible values are grpc, http
 metricsServiceName = ""                  # Optional Configuration. Default value is empty string
 metricsExportIntervalMillis = 60000      # Optional Configuration. Default value is 60000
-metricsExporterTimeoutMillis = 1000      # Optional Configuration. Default value is 1000
+metricsExporterTimeoutMillis = 10000     # Optional Configuration. Default value is 10000
 metricsPrefix = ""                       # Optional Configuration. Default value is empty string
-
-[ballerina.otel.metricsExporterHeaders]  # Optional. Similar to OTEL_EXPORTER_OTLP_METRICS_HEADERS.
-"api-key" = "key"
+metricsExporterHeaders = "api-key=key"   # Optional. Comma-separated key=value pairs, same format as OTEL_EXPORTER_OTLP_METRICS_HEADERS. Values may be percent-encoded (e.g. value%20with%20spaces)
 
 [ballerina.otel.metricsResourceAttributes]
 "service.name" = "my-service"
+```
+
+For OTLP/HTTP metrics, configure the complete metrics endpoint URL.
+```toml
+[ballerina.otel]
+metricsProtocol = "http"
+metricsEndpoint = "http://localhost:4318/v1/metrics"
 ```

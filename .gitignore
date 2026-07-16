@@ -45,6 +45,7 @@ target/
 bin/
 # Generated per scenario run from tests/configs/ by the ballerinaTest Gradle task
 ballerina-tests/otel-collector-tests/tests/Config.toml
+ballerina-tests/jaeger-tests/tests/Config.toml
 
 # Other
 *.deb

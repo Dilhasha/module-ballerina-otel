@@ -23,6 +23,11 @@ tracesSampler = "always_on"
 metricsEndpoint = "http://localhost:14318/v1/metrics"
 metricsProtocol = "http"
 metricsExportIntervalMillis = 3000
+# Exercise the comma-separated header string parsing (values may be
+# percent-encoded). The collector ignores unknown headers, so a successful
+# export proves the parsed headers did not break the OTLP requests.
+tracesExporterHeaders = "x-scenario=export,x-encoded-header=value%20with%20spaces"
+metricsExporterHeaders = "x-scenario=export,x-encoded-header=value%20with%20spaces"
 
 [ballerina.otel.tracesResourceAttributes]
 "service.name" = "ballerina-otel-collector-tests"
