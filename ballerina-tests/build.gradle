@@ -37,61 +37,6 @@ def isLinux = !Os.isFamily(Os.FAMILY_WINDOWS) && !Os.isFamily(Os.FAMILY_MAC)
 def collectorComposeFileArgs = "-f ${collectorComposeFile}" +
         (isLinux ? " -f ${project.projectDir}/resources/otel-collector/docker-compose.linux.yml" : "")
 
-// The module packs OTel SDK jars that need the opentelemetry-api version shaded
-// into ballerina-rt of the ballerinaLangVersion distribution, so the tests must
-// run on that exact distribution (a locally installed `bal` may differ).
-// The ballerinai/observe injection below is only required for bare timestamped
-// distributions (GA distributions already pack it); it is kept because it is
-// harmless on a full distribution and lets the same build run on both.
-def extractedDistributions = "${project.buildDir}/extracted-distributions"
-def distributionBinPath = "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/bin"
-
-dependencies {
-    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaLangVersion}") {
-        transitive = false
-    }
-    // Timestamped jballerina-tools distributions are bare (no ballerinai
-    // modules packed), but the compiler injects an import of
-    // ballerinai/observe when observabilityIncluded is set, so the module
-    // must be copied into the distribution repo before running the tests.
-    ballerinaStdLibs("io.ballerina:observe-ballerina:${observeInternalVersion}") {
-        transitive = false
-    }
-}
-
-task unpackJballerinaTools(type: Copy) {
-    configurations.jbalTools.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-        from zipTree(artifact.getFile())
-        into new File(extractedDistributions)
-    }
-}
-
-task unpackStdLibs {
-    dependsOn unpackJballerinaTools
-    doLast {
-        configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-            copy {
-                from project.zipTree(artifact.getFile())
-                into new File("${project.buildDir}/extracted-stdlibs", artifact.name + '-' + artifact.moduleVersion.id.version)
-            }
-        }
-    }
-}
-
-task copyStdlibsToDistribution(type: Copy) {
-    dependsOn unpackStdLibs
-    into "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/repo"
-    configurations.ballerinaStdLibs.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-        def artifactExtractedPath = "${project.buildDir}/extracted-stdlibs/" + artifact.name + '-' + artifact.moduleVersion.id.version
-        into("bala") {
-            from "${artifactExtractedPath}/bala"
-        }
-        into("cache") {
-            from "${artifactExtractedPath}/cache"
-        }
-    }
-}
-
 def stripBallerinaExtensionVersion(String extVersion) {
     if (extVersion.matches(project.ext.timestampedVersionRegex)) {
         def splitVersion = extVersion.split('-')
@@ -202,8 +147,6 @@ task stopJaeger {
 task ballerinaTest {
     dependsOn ':otel-extension-ballerina:ballerinaBuild'
     dependsOn ':otel-extension-ballerina:publishBalaFileToLocal'
-    dependsOn unpackJballerinaTools
-    dependsOn copyStdlibsToDistribution
     dependsOn updateTomlVersions
     dependsOn startOtelCollector
     dependsOn startJaeger
@@ -224,9 +167,9 @@ task ballerinaTest {
                 workingDir "${project.projectDir}/${packageDir}"
                 environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
                 if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                    commandLine 'cmd', '/c', "${distributionBinPath}/bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
+                    commandLine 'cmd', '/c', "bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
                 } else {
-                    commandLine 'sh', '-c', "${distributionBinPath}/bal test ${testParams}"
+                    commandLine 'sh', '-c', "bal test ${testParams}"
                 }
             }
         }
