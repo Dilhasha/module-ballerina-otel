@@ -1,0 +1,31 @@
+# OTLP/gRPC scenario: runs the same "export" assertions as the default
+# (OTLP/HTTP) run, but exports traces and metrics over the collector's
+# OTLP/gRPC receiver (host port :14317; the non-default port avoids clashes
+# with local observability agents on 4317, see
+# resources/otel-collector/docker-compose.yml). Copied to tests/Config.toml
+# by the Gradle build. A distinct service.name isolates this run's telemetry
+# from any late/retried exports of other scenario runs still in the collector.
+scenario = "export"
+expectedServiceName = "ballerina-otel-grpc-tests"
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "otel"
+metricsEnabled = true
+metricsReporter = "otel"
+
+[ballerina.otel]
+tracesEndpoint = "http://localhost:14317"
+tracesProtocol = "grpc"
+tracesSampler = "always_on"
+metricsEndpoint = "http://localhost:14317"
+metricsProtocol = "grpc"
+metricsExportIntervalMillis = 3000
+
+[ballerina.otel.tracesResourceAttributes]
+"service.name" = "ballerina-otel-grpc-tests"
+"deployment.environment" = "test"
+
+[ballerina.otel.metricsResourceAttributes]
+"service.name" = "ballerina-otel-grpc-tests"
+"deployment.environment" = "test"

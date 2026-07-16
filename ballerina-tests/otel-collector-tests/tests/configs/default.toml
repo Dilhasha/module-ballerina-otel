@@ -1,0 +1,38 @@
+# Default scenario: OTLP/HTTP export with always_on sampling. All scenario
+# configs (this one included) are copied to tests/Config.toml by the Gradle
+# build before each `bal test` invocation (see ballerina-tests/build.gradle);
+# `bal test` ignores a caller-provided BAL_CONFIG_FILES, so tests/Config.toml
+# is the only reliable way to select a scenario. Do not edit tests/Config.toml
+# directly: it is generated and overwritten on every run.
+scenario = "export"
+expectedServiceName = "ballerina-otel-collector-tests"
+
+[ballerina.observe]
+tracingEnabled = true
+tracingProvider = "otel"
+metricsEnabled = true
+metricsReporter = "otel"
+
+[ballerina.otel]
+# 14318 is the collector's OTLP/HTTP receiver on the host; the non-default
+# port avoids clashes with local observability agents on 4318 (see
+# resources/otel-collector/docker-compose.yml).
+tracesEndpoint = "http://localhost:14318/v1/traces"
+tracesProtocol = "http"
+tracesSampler = "always_on"
+metricsEndpoint = "http://localhost:14318/v1/metrics"
+metricsProtocol = "http"
+metricsExportIntervalMillis = 3000
+# Exercise the comma-separated header string parsing (values may be
+# percent-encoded). The collector ignores unknown headers, so a successful
+# export proves the parsed headers did not break the OTLP requests.
+tracesExporterHeaders = "x-scenario=export,x-encoded-header=value%20with%20spaces"
+metricsExporterHeaders = "x-scenario=export,x-encoded-header=value%20with%20spaces"
+
+[ballerina.otel.tracesResourceAttributes]
+"service.name" = "ballerina-otel-collector-tests"
+"deployment.environment" = "test"
+
+[ballerina.otel.metricsResourceAttributes]
+"service.name" = "ballerina-otel-collector-tests"
+"deployment.environment" = "test"

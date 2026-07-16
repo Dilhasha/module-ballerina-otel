@@ -1,0 +1,200 @@
+/*
+ * Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+// This subproject shrinks kotlin-stdlib (only ~10% of it is reachable from okhttp/okio,
+// the sole reason it is bundled) and verifies the shrunk jar by running the same
+// functional test suite against both the original and the slim kotlin-stdlib jars.
+//
+// Usage:
+//   ./gradlew :size-reduction-test:shrinkKotlinStdlib      - produce the slim jar
+//   ./gradlew :size-reduction-test:test                    - suite on ORIGINAL kotlin-stdlib
+//   ./gradlew :size-reduction-test:testOnSlimKotlinStdlib  - suite on SLIM kotlin-stdlib
+//   ./gradlew :size-reduction-test:verifySizeReduction     - all of the above + size report
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.guardsquare:proguard-gradle:${proguardGradleVersion}"
+    }
+}
+
+description = 'Ballerina - Otel Extension - Kotlin Stdlib Size Reduction Test'
+
+configurations {
+    // The pristine kotlin-stdlib jar (shrink input and "original" test variant)
+    kotlinStdlibOriginal {
+        transitive = false
+    }
+    // The jars whose kotlin-stdlib usage defines what must be kept
+    shrinkRoots {
+        transitive = false
+    }
+    // Compile-time-only libraries referenced by the shrink inputs (not bundled)
+    shrinkLibraries {
+        transitive = false
+    }
+    // kotlin-stdlib is supplied explicitly per test task (original vs slim),
+    // so keep every org.jetbrains.kotlin artifact off the test runtime classpath.
+    // Pin okhttp/okio to EXACTLY the versions bundled in the Ballerina package so the
+    // shrink and verification always reflect what ships, even if a future
+    // opentelemetry-exporter-sender-okhttp bump pulls a different okhttp/okio.
+    all {
+        resolutionStrategy {
+            force "com.squareup.okhttp3:okhttp:${okhttpVersion}"
+            force "com.squareup.okio:okio-jvm:${okioVersion}"
+            force "com.squareup.okio:okio:${okioVersion}"
+        }
+    }
+    testRuntimeClasspath {
+        exclude group: 'org.jetbrains.kotlin'
+    }
+    // Consumable configuration exposing the shrunk kotlin-stdlib jar to other
+    // subprojects (the ballerina module bundles it instead of the original).
+    slimKotlinStdlib {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+dependencies {
+    testImplementation project(':otel-extension-native')
+    testImplementation "org.ballerinalang:ballerina-runtime:${ballerinaLangVersion}"
+    testImplementation "io.opentelemetry:opentelemetry-sdk-trace:${openTelemetrySDKVersion}"
+    testImplementation "io.opentelemetry:opentelemetry-sdk-metrics:${openTelemetrySDKVersion}"
+    testImplementation "io.opentelemetry:opentelemetry-sdk-common:${openTelemetrySDKVersion}"
+    testImplementation "io.opentelemetry:opentelemetry-exporter-otlp:${openTelemetryExporterVersion}"
+    testImplementation "com.squareup.okhttp3:okhttp:${okhttpVersion}"
+    testImplementation "com.squareup.okio:okio-jvm:${okioVersion}"
+    testRuntimeOnly "io.opentelemetry:opentelemetry-exporter-sender-okhttp:${openTelemetryExporterVersion}"
+    testImplementation "org.testng:testng:${testngVersion}"
+    // In-JVM OTLP/gRPC collector stand-in (grpc-java is pure Java: no Kotlin on the
+    // server side that could mask a missing kotlin-stdlib member in the okhttp-based
+    // gRPC exporter under test).
+    testImplementation "io.grpc:grpc-api:${grpcVersion}"
+    testImplementation "io.grpc:grpc-stub:${grpcVersion}"
+    testImplementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
+
+    kotlinStdlibOriginal "org.jetbrains.kotlin:kotlin-stdlib:${kotlinStdlibVersion}"
+    shrinkRoots "com.squareup.okhttp3:okhttp:${okhttpVersion}"
+    shrinkRoots "com.squareup.okio:okio-jvm:${okioVersion}"
+    // Nullability annotations (class retention) referenced by kotlin-stdlib/okhttp/okio
+    shrinkLibraries "org.jetbrains:annotations:13.0"
+}
+
+def kotlinSlimJar = file("${buildDir}/libs/kotlin-stdlib-${kotlinStdlibVersion}-slim.jar")
+def shrinkDiscardJar = file("${buildDir}/tmp/proguard/shrink-roots-discard.jar")
+
+// Shrink-only ProGuard pass: okhttp + okio are kept in full (they are the only
+// consumers of kotlin-stdlib in this module), every kotlin-stdlib class/member
+// unreachable from them is stripped. No optimization, no obfuscation.
+tasks.register('shrinkKotlinStdlib', proguard.gradle.ProGuardTask) {
+    group = 'build'
+    description = 'Produces a shrunk kotlin-stdlib jar containing only what okhttp/okio need.'
+    dependsOn configurations.kotlinStdlibOriginal
+    dependsOn configurations.shrinkRoots
+    dependsOn configurations.shrinkLibraries
+
+    injars(configurations.kotlinStdlibOriginal, filter: '!module-info.class,!META-INF/versions/**')
+    injars(configurations.shrinkRoots, filter: '!module-info.class,!META-INF/**')
+    // Kotlin classes and kotlin-stdlib resources go to the slim jar; the fully-kept
+    // okhttp/okio classes are discarded (they are consumed from their own jars).
+    outjars(kotlinSlimJar, filter: 'kotlin/**,META-INF/**')
+    outjars(shrinkDiscardJar)
+
+    libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod",
+            jarfilter: '!**.jar', filter: '!module-info.class'
+    libraryjars "${System.getProperty('java.home')}/jmods/java.logging.jmod",
+            jarfilter: '!**.jar', filter: '!module-info.class'
+    libraryjars configurations.shrinkLibraries
+
+    configuration file('proguard/kotlin-stdlib-slim.pro')
+
+    printusage file("${buildDir}/proguard/removed-from-kotlin-stdlib.txt")
+}
+
+// Publish the slim jar on the consumable configuration so the ballerina module
+// can bundle it in place of the original kotlin-stdlib.
+artifacts {
+    slimKotlinStdlib(kotlinSlimJar) {
+        builtBy tasks.named('shrinkKotlinStdlib')
+    }
+}
+
+def configureSuite = { Test task ->
+    task.useTestNG() {
+        suites 'src/test/resources/testng.xml'
+    }
+    task.testLogging {
+        events "PASSED", "FAILED", "SKIPPED"
+        showStackTraces true
+        showStandardStreams true
+        exceptionFormat "full"
+    }
+}
+
+// Default test task: functional suite against the ORIGINAL kotlin-stdlib jar.
+test {
+    configureSuite(it)
+    classpath += configurations.kotlinStdlibOriginal
+    systemProperty 'kotlin.stdlib.variant', 'original'
+}
+
+// Same functional suite against the SLIM (shrunk) kotlin-stdlib jar.
+tasks.register('testOnSlimKotlinStdlib', Test) {
+    group = 'verification'
+    description = 'Runs the functional test suite against the ProGuard-shrunk kotlin-stdlib jar.'
+    dependsOn tasks.named('shrinkKotlinStdlib')
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + files(kotlinSlimJar)
+    configureSuite(it)
+    systemProperty 'kotlin.stdlib.variant', 'slim'
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.register('sizeReductionReport') {
+    group = 'verification'
+    description = 'Prints the kotlin-stdlib size reduction achieved by shrinkKotlinStdlib.'
+    dependsOn tasks.named('shrinkKotlinStdlib')
+    doLast {
+        def originalJar = configurations.kotlinStdlibOriginal.singleFile
+        long originalSize = originalJar.length()
+        long slimSize = kotlinSlimJar.length()
+        double reduction = 100.0d * (originalSize - slimSize) / originalSize
+        println '------------------------------------------------------------------'
+        println 'kotlin-stdlib size reduction report'
+        println String.format('  original : %s (%,d bytes)', originalJar.name, originalSize)
+        println String.format('  slim     : %s (%,d bytes)', kotlinSlimJar.name, slimSize)
+        println String.format('  reduction: %.1f%%', reduction)
+        println '------------------------------------------------------------------'
+        if (slimSize >= originalSize) {
+            throw new GradleException('Shrunk kotlin-stdlib jar is not smaller than the original')
+        }
+    }
+}
+
+tasks.register('verifySizeReduction') {
+    group = 'verification'
+    description = 'Shrinks kotlin-stdlib and runs the functional suite on both jars.'
+    dependsOn tasks.named('test')
+    dependsOn tasks.named('testOnSlimKotlinStdlib')
+    dependsOn tasks.named('sizeReductionReport')
+}
+
+check.dependsOn tasks.named('testOnSlimKotlinStdlib')
