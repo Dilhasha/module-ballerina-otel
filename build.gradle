@@ -61,32 +61,20 @@ allprojects {
     }
 }
 
-configurations {
-    jbalTools {
-        transitive = false
-    }
-}
-
-dependencies {
-    jbalTools("org.ballerinalang:jballerina-tools:${ballerinaLangVersion}") {
-        transitive = false
-    }
-}
-
-def extractedDistributions = "${buildDir}/extracted-distributions"
-ext.distributionBinPath = "${extractedDistributions}/jballerina-tools-${ballerinaLangVersion}/bin"
+// Assembled by io.ballerina.plugin (applied in the ballerina subproject):
+// unpackJballerinaTools extracts the bare jballerina-tools distribution here
+// and copyStdlibs merges the ballerinaStdLibs balas into it, so consumers
+// must depend on ':otel-extension-ballerina:build' (or copyStdlibs).
+ext.distributionBinPath = "${project.rootDir}/target/ballerina-runtime/bin"
 ext.ballerinaHomeDir = "${buildDir}/ballerina-home"
 
-task unpackJballerinaTools(type: Copy) {
-    from {
-        configurations.jbalTools.collect { artifact ->
-            zipTree(artifact)
-        }
-    }
-    into new File(extractedDistributions)
-}
-
 subprojects {
+    // The Ballerina module project is built by io.ballerina.plugin, which
+    // registers its own build/test/clean tasks that clash with java-library's.
+    if (project.name == 'otel-extension-ballerina') {
+        return
+    }
+
     apply plugin: 'java-library'
     apply plugin: 'checkstyle'
     apply plugin: 'com.github.spotbugs'
@@ -136,32 +124,6 @@ subprojects {
 
 def moduleVersion = project.version.replace("-SNAPSHOT", "")
 
-def executeBalCommand(String command, String dir, env = "", String ballerinaHomeDir = rootProject.ext.ballerinaHomeDir) {
-    def balCommand = Os.isFamily(Os.FAMILY_WINDOWS) ?
-            "${rootProject.ext.distributionBinPath}/bal.bat" : "${rootProject.ext.distributionBinPath}/bal"
-    if (ballerinaHomeDir == rootProject.ext.ballerinaHomeDir) {
-        file("${ballerinaHomeDir}/Settings.toml").delete()
-    }
-    try {
-        exec {
-            workingDir dir
-            if (env) {
-                def envPair = env.split(" ", 2)
-                environment envPair[0], envPair.length > 1 ? envPair[1] : ""
-            }
-            environment "BALLERINA_HOME_DIR", ballerinaHomeDir
-            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-                commandLine 'cmd', '/c', "${balCommand} ${command} && exit %%ERRORLEVEL%%"
-            } else {
-                commandLine 'sh', '-c', "${balCommand} ${command}"
-            }
-        }
-    } catch (Exception e) {
-        println("bal command failed. " + e.message)
-        throw e
-    }
-}
-
 release {
     failOnPublishNeeded = false
     failOnSnapshotDependencies = true
@@ -183,10 +145,16 @@ task codeCoverageReport(type: JacocoReport) {
     dependsOn('otel-extension-native:copyJavaClassFiles')
     dependsOn(':otel-extension-native:jacocoTestReport')
 
-    executionData fileTree(project.rootDir.absolutePath).include("**/*.exec")
+    // The unpacked Ballerina distributions live under the searched tree but
+    // never contain execution data.
+    executionData fileTree(project.rootDir.absolutePath) {
+        include "**/*.exec"
+        exclude "**/ballerina-runtime/**"
+        exclude "**/jballerina-tools-*/**"
+    }
     additionalClassDirs files("${buildDir}/classes")
 
-    subprojects.each {
+    subprojects.findAll { it.pluginManager.hasPlugin('java-library') }.each {
         sourceSets it.sourceSets.main
     }
 

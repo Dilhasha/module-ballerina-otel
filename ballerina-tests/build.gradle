@@ -145,9 +145,10 @@ task stopJaeger {
 }
 
 task ballerinaTest {
-    dependsOn ':otel-extension-ballerina:ballerinaBuild'
+    // :otel-extension-ballerina:build also assembles the stdlib-equipped
+    // distribution at rootDir/target/ballerina-runtime used below.
+    dependsOn ':otel-extension-ballerina:build'
     dependsOn ':otel-extension-ballerina:publishBalaFileToLocal'
-    dependsOn rootProject.tasks.unpackJballerinaTools
     dependsOn updateTomlVersions
     dependsOn startOtelCollector
     dependsOn startJaeger
