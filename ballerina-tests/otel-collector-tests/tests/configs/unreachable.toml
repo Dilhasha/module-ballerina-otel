@@ -15,10 +15,10 @@ metricsReporter = "otel"
 
 [ballerina.otel]
 tracesEndpoint = "http://localhost:4390/v1/traces"
-tracesProtocol = "http"
+tracesProtocol = "http/protobuf"
 tracesSampler = "always_on"
 metricsEndpoint = "http://localhost:4390/v1/metrics"
-metricsProtocol = "http"
+metricsProtocol = "http/protobuf"
 metricsExportIntervalMillis = 3000
 
 [ballerina.otel.tracesResourceAttributes]

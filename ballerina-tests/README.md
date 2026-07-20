@@ -1,8 +1,8 @@
 # Ballerina OTel end-to-end tests
 
-Two end-to-end test packages verify the `ballerina/otel` module against real observability
-backends (unlike the JVM-level tests in `size-reduction-test`, which use in-JVM mock
-collectors):
+Three end-to-end test packages verify the `ballerina/otel` module against real
+observability backends (unlike the JVM-level tests in `size-reduction-test`, which use
+in-JVM mock collectors):
 
 - **`otel-collector-tests`** — exports traces and metrics through a real
   `opentelemetry-collector-contrib` instance (over both **OTLP/HTTP and OTLP/gRPC**) and
@@ -10,18 +10,25 @@ collectors):
 - **`jaeger-tests`** — exports traces over **OTLP/gRPC** straight into a real **Jaeger
   all-in-one** backend and asserts through the **Jaeger Query API**, validating the whole
   ingest → store → query path (see [Jaeger end-to-end tests](#jaeger-end-to-end-tests)).
+- **`prometheus-tests`** — exports **metrics** over **OTLP/HTTP** into a real, self-hosted
+  **Prometheus** backend via its **native OTLP receiver** (stable since Prometheus 3.0) and
+  asserts through the **Prometheus query API** (`/api/v1/query_range`), validating the whole
+  metric ingest → store → query path (see
+  [Prometheus end-to-end tests](#prometheus-end-to-end-tests)).
 
 ## Self-contained test setup
 
 No manual setup is required — the tests are **self-contained**:
 
-- The Gradle build (`build.gradle` → `startOtelCollector` / `stopOtelCollector` and
-  `startJaeger` / `stopJaeger`) starts an
-  `otel/opentelemetry-collector-contrib:0.120.0` container named `otel-collector-test` and
-  a `jaegertracing/all-in-one:1.62.0` container named `jaeger-test` via Docker Compose
+- The Gradle build (`build.gradle` → `startOtelCollector` / `stopOtelCollector`,
+  `startJaeger` / `stopJaeger`, and `startPrometheus` / `stopPrometheus`) starts an
+  `otel/opentelemetry-collector-contrib:0.120.0` container named `otel-collector-test`, a
+  `jaegertracing/all-in-one:1.62.0` container named `jaeger-test`, and a single
+  `prom/prometheus:v3.5.0` container named `prometheus-test` via Docker Compose
   before the tests run, and tears them down afterwards (`finalizedBy`).
 - If a container with the expected name is already running, it is reused instead of
-  restarted.
+  restarted. Prometheus is a single Go binary that boots in seconds, so
+  `startPrometheus` only needs a short warm-up before the tests begin.
 - **Docker is therefore a hard requirement.** On Windows the collector tasks (and the
   Ballerina tests) are skipped; on any platform they can be skipped with `-PskipBalTests`.
 - Everything the collector forwards is captured by a mock OTLP sink implemented *inside the
@@ -67,6 +74,8 @@ against exactly what a real collector received and processed.
 | 24317 | Docker Jaeger | OTLP/gRPC receiver (container port 4317) |
 | 24318 | Docker Jaeger | OTLP/HTTP receiver (container port 4318, currently unused) |
 | 26686 | Docker Jaeger | Jaeger Query API / UI (container port 16686) |
+| 9093 | `prometheus-tests/main.bal` | HTTP service under test of the Prometheus package |
+| 39090 | Docker Prometheus | HTTP API: OTLP/HTTP metrics ingest via the native receiver (`/api/v1/otlp/v1/metrics`) **and** the Prometheus query API (`/api/v1/query_range`) (container port 9090) |
 
 ## Scenarios
 
@@ -87,7 +96,9 @@ ignores a caller-provided `BAL_CONFIG_FILES` environment variable, but always pi
 
 After the collector scenarios, the Gradle build runs the separate **`jaeger-tests`**
 package once (config `jaeger-tests/tests/configs/default.toml`, no groups — see
-[Jaeger end-to-end tests](#jaeger-end-to-end-tests)).
+[Jaeger end-to-end tests](#jaeger-end-to-end-tests)), and then the separate
+**`prometheus-tests`** package once (config `prometheus-tests/tests/configs/default.toml`,
+no groups — see [Prometheus end-to-end tests](#prometheus-end-to-end-tests)).
 
 Each scenario configures a **distinct `service.name`** resource attribute, and every
 span/metric lookup in the test suite filters on it — late or retried exports from a
@@ -112,6 +123,12 @@ the current run.
 | `jaeger-tests/tests/Config.toml` | **Generated** per run from `tests/configs/` by the Gradle build (gitignored) |
 | `jaeger-tests/tests/test.bal` | Jaeger Query API record types, helpers, and test cases |
 | `resources/jaeger/docker-compose.yml` | Jaeger all-in-one container definition (host ports `:24317`/`:24318`/`:26686`) |
+| `prometheus-tests/main.bal` | Same instrumented HTTP service as the collector package, on `:9093` |
+| `prometheus-tests/tests/configs/default.toml` | Prometheus scenario config: OTLP/HTTP → `:39090/api/v1/otlp/v1/metrics`, metrics only, 3 s export interval, resource attributes, plus the query endpoint (no auth — Prometheus has none) |
+| `prometheus-tests/tests/Config.toml` | **Generated** per run from `tests/configs/` by the Gradle build (gitignored) |
+| `prometheus-tests/tests/test.bal` | Prometheus query API record types, helpers, and metrics test cases |
+| `resources/prometheus/docker-compose.yml` | Single-container Prometheus definition (`prom/prometheus:v3.5.0`, `--web.enable-otlp-receiver`; host port `:39090`) |
+| `resources/prometheus/prometheus.yml` | Prometheus config: OTLP `promote_resource_attributes` (surfaces `service.name` as a label) + `UnderscoreEscapingWithSuffixes` translation, out-of-order ingestion window |
 
 ## Test cases (`tests/test.bal`)
 
@@ -230,11 +247,70 @@ spans (same set as the collector export scenario, with the
 | `testErrorSpanStoredWithErrorIndication` | The `get /failure` span has `http.status_code=500` and an error indication (`error` tag or `otel.status_code=ERROR`) |
 | `testProcessResourceAttributes` | The Jaeger process carries the configured `service.name` and the `deployment.environment=test` resource attribute as a process tag |
 
+## Prometheus end-to-end tests
+
+The `prometheus-tests` package is the **metrics** counterpart of the Jaeger tracing
+suite: it exports over **OTLP/HTTP** into a real, self-hosted **Prometheus** backend
+through its **native OTLP receiver** and asserts on what the **Prometheus query API**
+(`/api/v1/query_range`) returns — so OTLP receipt, storage, and querying are all exercised
+end to end. Prometheus 3.0 ingests OTLP natively (the receiver is stable since 3.0), so —
+unlike a multi-container stack — no separate collector or push gateway is required.
+
+```
+Ballerina app under test (prometheus-tests/main.bal, :9093)
+        │  OTLP/HTTP export (tests/Config.toml → localhost:39090/api/v1/otlp/v1/metrics)
+        ▼
+Prometheus (Docker, prom/prometheus:v3.5.0, --web.enable-otlp-receiver) — ingest + store + query
+        ▲
+        │  GET /api/v1/query_range?query=…  (host :39090, no auth)
+Test suite (prometheus-tests/tests/test.bal)
+```
+
+Notes on the design:
+
+- **Metrics only** — the suite validates the two metrics the Ballerina observability
+  runtime emits for an instrumented HTTP service: the `requests_total` monotonic counter
+  and the `inprogress_requests` gauge. `metricsEnabled` is on and tracing is left at its
+  default in the scenario config.
+- **No authentication** — Prometheus ships without an auth layer, so the OTLP receiver
+  (`--web.enable-otlp-receiver`, off by default) and the query API are both open on the
+  host port (`:39090`). No credentials or exporter `Authorization` header are needed.
+- **Native OTLP + query API on one port** — Prometheus accepts OTLP/HTTP metrics at
+  `/api/v1/otlp/v1/metrics` and serves the query API at `/api/v1/query_range` on the same
+  host port (`:39090`, container `9090`).
+- **Resource-attribute promotion** — by default Prometheus maps `service.name` only to the
+  `job` label and drops other resource attributes onto a `target_info` metric. The
+  `resources/prometheus/prometheus.yml` config sets `otlp.promote_resource_attributes`
+  (`service.name`, `deployment.environment`) so they surface as labels on every series.
+- **Label mapping** — with the default `UnderscoreEscapingWithSuffixes` translation
+  strategy the OTLP `service.name` resource attribute surfaces as the Prometheus label
+  `service_name` (dots become underscores). The metric names `requests_total` and
+  `inprogress_requests` carry no unit and the counter already ends in `_total`, so they
+  pass through unchanged. The assertions query by metric name and read the `service_name`
+  label off the returned series. The suite's own polling requests do not pollute the
+  metrics, so no scoping is needed.
+
+### Setup — `setup` (`@test:BeforeSuite`)
+
+Sends `GET http://localhost:9093/test/sum` and `GET /test/failure` (must fail with a
+500), then polls the Prometheus query API for up to ~240 s (2 s interval) until both
+metrics are queryable (app periodic export → Prometheus ingest → query).
+
+### Assertions
+
+| Test | Verifies |
+|------|----------|
+| `testServiceResponse` | The service responded `"Sum: 53"` |
+| `testRequestsTotalCounterQueryable` | The `requests_total` metric is queryable in Prometheus and has at least one data point with a value ≥ 1 (i.e. the counter's data points reached the store) |
+| `testInprogressRequestsGaugeQueryable` | The `inprogress_requests` gauge metric is queryable in Prometheus |
+| `testMetricsCarryServiceNameResourceAttribute` | A `requests_total` series carries the `service_name` label set to the configured service name — confirming the OTLP resource attribute survived as a promoted metric label |
+
 ## Running
 
 ```bash
-# Full run (builds the module, publishes it locally, starts the collector and
-# Jaeger, runs bal test once per scenario plus the Jaeger package)
+# Full run (builds the module, publishes it locally, starts the collector,
+# Jaeger and Prometheus, runs bal test once per scenario plus the Jaeger and
+# Prometheus packages)
 ./gradlew :otel-extension-ballerina-tests:test
 
 # Skip these tests
@@ -266,6 +342,18 @@ JAVA_OPTS="-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true" \
     ../../build/extracted-distributions/jballerina-tools-*/bin/bal test
 ```
 
+The Prometheus package works the same way. Start the Prometheus container from
+`resources/prometheus/docker-compose.yml` first (it boots in seconds; the package has a
+single scenario and no groups):
+
+```bash
+docker compose -f ballerina-tests/resources/prometheus/docker-compose.yml up -d
+cd ballerina-tests/prometheus-tests
+cp tests/configs/default.toml tests/Config.toml
+JAVA_OPTS="-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true" \
+    ../../build/extracted-distributions/jballerina-tools-*/bin/bal test
+```
+
 Notes:
 
 - The tests use the Ballerina distribution declared by `ballerinaLangVersion`,
@@ -280,9 +368,11 @@ Notes:
 
 ## Requirements
 
-- Docker with Compose (collector and Jaeger containers) — tests are skipped on Windows
+- Docker with Compose (collector, Jaeger, and the single-container Prometheus backend) —
+  tests are skipped on Windows
 - JDK 21 (module build)
-- Free local ports: 9091, 9092, 9095, 14317, 14318, 24317, 24318, 26686 (and nothing
-  listening on 4390)
+- Free local ports: 9091, 9092, 9093, 9095, 14317, 14318, 24317, 24318, 26686, 39090
+  (and nothing listening on 4390)
 - Network access to pull `otel/opentelemetry-collector-contrib:0.120.0`,
-  `jaegertracing/all-in-one:1.62.0`, and the Ballerina distribution on first run
+  `jaegertracing/all-in-one:1.62.0`, `prom/prometheus:v3.5.0`, and the Ballerina
+  distribution on first run

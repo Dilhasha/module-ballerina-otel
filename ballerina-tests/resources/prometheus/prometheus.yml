@@ -1,0 +1,46 @@
+# Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+#
+# WSO2 Inc. licenses this file to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Minimal Prometheus config for the OTLP metrics end-to-end tests. There are no
+# scrape targets: the app pushes metrics in via the native OTLP receiver
+# (enabled with --web.enable-otlp-receiver in docker-compose.yml).
+
+global:
+  scrape_interval: 15s
+
+# OTLP ingestion behaviour. Unlike backends that store OTLP verbatim, Prometheus
+# needs to be told how to map OpenTelemetry data onto its data model:
+otlp:
+  # By default Prometheus turns `service.name` into the `job` label and keeps
+  # other resource attributes only on a separate `target_info` series. The tests
+  # assert on a `service_name` label directly on the metrics, so promote the
+  # resource attributes they care about onto every series.
+  promote_resource_attributes:
+    - service.name
+    - deployment.environment
+  # `UnderscoreEscapingWithSuffixes` is the default OTLP->Prometheus naming
+  # strategy: it escapes dots to underscores (so `service.name` becomes the
+  # `service_name` label the tests query) and appends type/unit suffixes to
+  # metric names. The instrumented metrics are already Prometheus-style
+  # (`requests_total`, `inprogress_requests`) with no unit, so they surface
+  # under the same names.
+  translation_strategy: UnderscoreEscapingWithSuffixes
+
+storage:
+  tsdb:
+    # OTLP exports can arrive slightly out of order once the app has been
+    # running for a while; allow a generous window so no samples are rejected.
+    out_of_order_time_window: 30m

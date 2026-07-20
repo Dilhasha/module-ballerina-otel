@@ -1,0 +1,49 @@
+# Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+#
+# WSO2 Inc. licenses this file to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Single-container Prometheus backend for the metrics end-to-end tests.
+#
+# Since Prometheus 3.0 the server ships a *stable* native OTLP receiver, so it
+# can ingest OpenTelemetry metrics over OTLP/HTTP directly — no OpenTelemetry
+# Collector required — and serve them back through its own PromQL query API.
+# The receiver is disabled by default (Prometheus has no auth layer), so it is
+# turned on explicitly with `--web.enable-otlp-receiver`.
+#
+# Notes:
+#   - The OTLP receiver is served at /api/v1/otlp/v1/metrics; the PromQL query
+#     API the tests read from is at /api/v1/query_range. Both are on the same
+#     HTTP port (9090 in the container).
+#   - The host port is remapped off the default (39090 -> 9090) to avoid
+#     clashing with any locally running Prometheus.
+#   - OTLP ingest/query behaviour (resource-attribute promotion and metric-name
+#     translation) is configured in ./prometheus.yml, bind-mounted read-only.
+#   - The TSDB lives inside the container (no host bind-mount); it is discarded
+#     when the container is removed, which is all the tests need.
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prometheus-test
+    restart: on-failure
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--web.enable-otlp-receiver"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "39090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro

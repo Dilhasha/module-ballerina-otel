@@ -18,10 +18,10 @@ metricsReporter = "otel"
 # port avoids clashes with local observability agents on 4318 (see
 # resources/otel-collector/docker-compose.yml).
 tracesEndpoint = "http://localhost:14318/v1/traces"
-tracesProtocol = "http"
+tracesProtocol = "http/protobuf"
 tracesSampler = "always_on"
 metricsEndpoint = "http://localhost:14318/v1/metrics"
-metricsProtocol = "http"
+metricsProtocol = "http/protobuf"
 metricsExportIntervalMillis = 3000
 # Exercise the comma-separated header string parsing (values may be
 # percent-encoded). The collector ignores unknown headers, so a successful

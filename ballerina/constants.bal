@@ -23,3 +23,11 @@ const SAMPLER_TYPE_PARENT_BASED_ALWAYS_OFF = "parentbased_always_off";
 const SAMPLER_TYPE_PARENT_BASED_TRACE_ID_RATIO = "parentbased_traceidratio";
 const SAMPLER_TYPE_RATE_LIMITING = "ratelimiting";
 const DEFAULT_SAMPLER_TYPE = SAMPLER_TYPE_PARENT_BASED_ALWAYS_ON;
+
+// Exporter protocol values.
+// grpc          -> OTLP/gRPC
+// http/protobuf -> OTLP/HTTP + protobuf
+// http/json     -> OTLP/HTTP + JSON
+const PROTOCOL_GRPC = "grpc";
+const PROTOCOL_HTTP_PROTOBUF = "http/protobuf";
+const PROTOCOL_HTTP_JSON = "http/json";

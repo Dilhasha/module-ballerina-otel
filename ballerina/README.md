@@ -40,7 +40,7 @@ tracesSampler = "parentbased_always_on" # Optional Configuration. Default value 
 tracesSamplerArg = 1                    # Optional Configuration. Default value is 1
 tracesExporterTimeoutMillis = 10000     # Optional Configuration. Default value is 10000
 tracesMaxExportBatchSize = 512          # Optional Configuration. Default value is 512
-tracesProtocol = "grpc"                 # Optional Configuration. Default value is grpc. Possible values are grpc, http
+tracesProtocol = "grpc"                 # Optional Configuration. Default value is grpc. Possible values are grpc, http/protobuf, http/json (http/json is not yet supported)
 tracesLogConsole = false                # Optional Configuration. Default value is false
 tracesLogFile = ""                      # Optional Configuration. Default value is empty string
 tracesLogLevel = "info"                 # Optional Configuration. Default value is info. Possible values are debug, info, warn, error
@@ -53,7 +53,7 @@ tracesExporterHeaders = "api-key=key"   # Optional. Comma-separated key=value pa
 For OTLP/HTTP traces, configure the complete traces endpoint URL.
 ```toml
 [ballerina.otel]
-tracesProtocol = "http"
+tracesProtocol = "http/protobuf"
 tracesEndpoint = "http://localhost:4318/v1/traces"
 ```
 
@@ -65,7 +65,7 @@ metricsReporter = "otel"
 
 [ballerina.otel]
 metricsEndpoint = "http://localhost:4317" # Optional Configuration. Default value is http://localhost:4317
-metricsProtocol = "grpc"                 # Optional Configuration. Default value is grpc. Possible values are grpc, http
+metricsProtocol = "grpc"                 # Optional Configuration. Default value is grpc. Possible values are grpc, http/protobuf, http/json (http/json is not yet supported)
 metricsServiceName = ""                  # Optional Configuration. Default value is empty string
 metricsExportIntervalMillis = 60000      # Optional Configuration. Default value is 60000
 metricsExporterTimeoutMillis = 10000     # Optional Configuration. Default value is 10000
@@ -79,6 +79,6 @@ metricsExporterHeaders = "api-key=key"   # Optional. Comma-separated key=value p
 For OTLP/HTTP metrics, configure the complete metrics endpoint URL.
 ```toml
 [ballerina.otel]
-metricsProtocol = "http"
+metricsProtocol = "http/protobuf"
 metricsEndpoint = "http://localhost:4318/v1/metrics"
 ```
