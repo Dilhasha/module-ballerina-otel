@@ -118,6 +118,7 @@ public class TracerProviderHttpExportTest {
         resourceAttributes.put(bString("\"deployment.environment\""), bString(ENVIRONMENT_VALUE));
 
         OtelTracerProvider.initializeConfigurations(bString(endpoint), bString("always_on"), decimal(1),
-                5000, 512, false, bString(""), bString(""), exporterHeaders, bString("http/protobuf"), resourceAttributes);
+                5000, 512, false, bString(""), bString(""), exporterHeaders, bString("http/protobuf"),
+                resourceAttributes);
     }
 }
