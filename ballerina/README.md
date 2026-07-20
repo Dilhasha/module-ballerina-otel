@@ -82,3 +82,14 @@ For OTLP/HTTP metrics, configure the complete metrics endpoint URL.
 metricsProtocol = "http/protobuf"
 metricsEndpoint = "http://localhost:4318/v1/metrics"
 ```
+
+## Third-party dependencies and licenses
+
+This package bundles the following third-party Java libraries, each redistributed under the Apache License, Version 2.0:
+
+- OpenTelemetry Java SDK and OTLP exporters (`io.opentelemetry:*`) — © The OpenTelemetry Authors
+- OkHttp (`com.squareup.okhttp3:okhttp`) — © Square, Inc.
+- Okio (`com.squareup.okio:okio-jvm`) — © Square, Inc.
+- Kotlin Standard Library (`org.jetbrains.kotlin:kotlin-stdlib`) — © JetBrains s.r.o. and Kotlin contributors
+
+The bundled `kotlin-stdlib` is a size-reduced ("slim") variant produced with ProGuard: only the classes reachable from OkHttp/Okio are retained, and no class is optimized or obfuscated, so every surviving class is byte-identical to the original artifact. The corresponding Apache 2.0 license, attribution and modification notice are included in the jar's `META-INF/LICENSE.txt` and `META-INF/NOTICE.txt`. See the `NOTICE` file in the source repository for full attributions.

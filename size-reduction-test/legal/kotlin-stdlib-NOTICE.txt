@@ -1,0 +1,42 @@
+Kotlin Standard Library (kotlin-stdlib)
+Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language
+contributors.
+
+Licensed under the Apache License, Version 2.0 (the "License"); the full text
+of the License is provided alongside this notice in META-INF/LICENSE.txt and is
+also available at http://www.apache.org/licenses/LICENSE-2.0.
+
+Homepage: https://kotlinlang.org/
+Sources:  https://github.com/JetBrains/kotlin
+
+--------------------------------------------------------------------------------
+MODIFICATION NOTICE (Apache License 2.0, section 4(b))
+--------------------------------------------------------------------------------
+This jar is NOT the original org.jetbrains.kotlin:kotlin-stdlib:1.9.23 artifact.
+It is a size-reduced ("slim") variant produced with ProGuard
+(https://www.guardsquare.com/proguard) by the Ballerina OpenTelemetry extension
+(org.ballerinalang:otel).
+
+Changes applied to the original artifact:
+  - Only the classes reachable from the OkHttp/Okio libraries (the sole reason
+    kotlin-stdlib is bundled) are retained; all other classes are removed.
+  - The multi-release entries (META-INF/versions/**) and module-info.class are
+    removed, and the stale "Multi-Release: true" manifest attribute is dropped.
+  - No class was optimized or obfuscated (ProGuard `-dontoptimize
+    -dontobfuscate`); every surviving class is byte-identical to the
+    corresponding class in the original artifact.
+
+The reproduction of this procedure is described in the `size-reduction-test`
+subproject of the source repository.
+
+--------------------------------------------------------------------------------
+THIRD-PARTY CODE WITHIN kotlin-stdlib
+--------------------------------------------------------------------------------
+  - Portions of the unsigned utilities are derived from Guava,
+    Copyright (C) 2011 The Guava Authors, licensed under the
+    Apache License, Version 2.0.
+  - Portions of the JVM math utilities are derived from the Boost special math
+    functions, Copyright Eric Ford & Hubert Holin 2001, licensed under the
+    Boost Software License, Version 1.0 (https://www.boost.org/LICENSE_1_0.txt).
+    The Boost Software License does not require reproduction of its text for
+    machine-executable object code such as the compiled classes in this jar.

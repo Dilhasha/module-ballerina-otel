@@ -98,8 +98,17 @@ dependencies {
     shrinkLibraries "org.jetbrains:annotations:13.0"
 }
 
+// Raw ProGuard output (shrunk classes + kotlin_module resources, with the
+// original -- now stale -- multi-release manifest). finalizeSlimKotlinStdlib
+// repackages this into the jar that actually ships (kotlinSlimJar).
+def kotlinSlimRawJar = file("${buildDir}/tmp/proguard/kotlin-stdlib-${kotlinStdlibVersion}-slim-raw.jar")
 def kotlinSlimJar = file("${buildDir}/libs/kotlin-stdlib-${kotlinStdlibVersion}-slim.jar")
 def shrinkDiscardJar = file("${buildDir}/tmp/proguard/shrink-roots-discard.jar")
+// Apache 2.0 attribution files embedded into the redistributed (modified)
+// kotlin-stdlib jar so the license/notice travel with the artifact inside the
+// published Ballerina package. The Apache 2.0 text is shared with the repo root.
+def kotlinSlimLicenseFile = file("${rootDir}/LICENSE")
+def kotlinSlimNoticeFile = file("legal/kotlin-stdlib-NOTICE.txt")
 
 // Shrink-only ProGuard pass: okhttp + okio are kept in full (they are the only
 // consumers of kotlin-stdlib in this module), every kotlin-stdlib class/member
@@ -113,9 +122,10 @@ tasks.register('shrinkKotlinStdlib', proguard.gradle.ProGuardTask) {
 
     injars(configurations.kotlinStdlibOriginal, filter: '!module-info.class,!META-INF/versions/**')
     injars(configurations.shrinkRoots, filter: '!module-info.class,!META-INF/**')
-    // Kotlin classes and kotlin-stdlib resources go to the slim jar; the fully-kept
-    // okhttp/okio classes are discarded (they are consumed from their own jars).
-    outjars(kotlinSlimJar, filter: 'kotlin/**,META-INF/**')
+    // Kotlin classes and kotlin-stdlib resources go to the raw slim jar; the
+    // fully-kept okhttp/okio classes are discarded (they are consumed from their
+    // own jars). finalizeSlimKotlinStdlib turns the raw jar into what ships.
+    outjars(kotlinSlimRawJar, filter: 'kotlin/**,META-INF/**')
     outjars(shrinkDiscardJar)
 
     libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod",
@@ -129,11 +139,54 @@ tasks.register('shrinkKotlinStdlib', proguard.gradle.ProGuardTask) {
     printusage file("${buildDir}/proguard/removed-from-kotlin-stdlib.txt")
 }
 
-// Publish the slim jar on the consumable configuration so the ballerina module
-// can bundle it in place of the original kotlin-stdlib.
+// Repackage the raw ProGuard output into the jar that actually ships:
+//   - generate a fresh manifest WITHOUT the now-stale "Multi-Release: true"
+//     attribute (META-INF/versions/** was stripped during shrinking), and
+//   - embed META-INF/LICENSE.txt (Apache 2.0) and META-INF/NOTICE.txt so the
+//     license, attribution and modification notice (Apache 2.0 sections 4(a),
+//     4(b) and 4(d)) travel with the modified kotlin-stdlib inside the
+//     published Ballerina package.
+tasks.register('finalizeSlimKotlinStdlib', Jar) {
+    group = 'build'
+    description = 'Adds Apache 2.0 LICENSE/NOTICE and a corrected manifest to the shrunk kotlin-stdlib jar.'
+    dependsOn tasks.named('shrinkKotlinStdlib')
+    inputs.file kotlinSlimLicenseFile
+    inputs.file kotlinSlimNoticeFile
+    destinationDirectory = kotlinSlimJar.parentFile
+    archiveFileName = kotlinSlimJar.name
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    // Shrunk classes and kotlin_module resources, minus the stale manifest
+    // (a fresh one is generated below).
+    from(zipTree(kotlinSlimRawJar)) {
+        exclude 'META-INF/MANIFEST.MF'
+    }
+    from(kotlinSlimLicenseFile) {
+        into 'META-INF'
+        rename { 'LICENSE.txt' }
+    }
+    from(kotlinSlimNoticeFile) {
+        into 'META-INF'
+        rename { 'NOTICE.txt' }
+    }
+    manifest {
+        // Mirrors the original kotlin-stdlib manifest, but drops "Multi-Release"
+        // and records that this is a modified redistribution.
+        attributes(
+                'Implementation-Vendor': 'JetBrains',
+                'Implementation-Title': 'kotlin-stdlib',
+                'Implementation-Version': "${kotlinStdlibVersion}",
+                'Kotlin-Version': '1.9',
+                'X-Modified': 'ProGuard-shrunk subset; see META-INF/NOTICE.txt'
+        )
+    }
+}
+
+// Publish the finalized slim jar on the consumable configuration so the
+// ballerina module can bundle it in place of the original kotlin-stdlib.
 artifacts {
     slimKotlinStdlib(kotlinSlimJar) {
-        builtBy tasks.named('shrinkKotlinStdlib')
+        builtBy tasks.named('finalizeSlimKotlinStdlib')
     }
 }
 
@@ -156,11 +209,12 @@ test {
     systemProperty 'kotlin.stdlib.variant', 'original'
 }
 
-// Same functional suite against the SLIM (shrunk) kotlin-stdlib jar.
+// Same functional suite against the SLIM (shrunk) kotlin-stdlib jar that ships
+// (i.e. the finalized jar with the corrected manifest and embedded LICENSE/NOTICE).
 tasks.register('testOnSlimKotlinStdlib', Test) {
     group = 'verification'
     description = 'Runs the functional test suite against the ProGuard-shrunk kotlin-stdlib jar.'
-    dependsOn tasks.named('shrinkKotlinStdlib')
+    dependsOn tasks.named('finalizeSlimKotlinStdlib')
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath + files(kotlinSlimJar)
     configureSuite(it)
@@ -171,7 +225,7 @@ tasks.register('testOnSlimKotlinStdlib', Test) {
 tasks.register('sizeReductionReport') {
     group = 'verification'
     description = 'Prints the kotlin-stdlib size reduction achieved by shrinkKotlinStdlib.'
-    dependsOn tasks.named('shrinkKotlinStdlib')
+    dependsOn tasks.named('finalizeSlimKotlinStdlib')
     doLast {
         def originalJar = configurations.kotlinStdlibOriginal.singleFile
         long originalSize = originalJar.length()
