@@ -15,8 +15,8 @@ This subproject does two things:
    OTLP/gRPC (gRPC over okhttp's HTTP/2 transport) — against in-JVM mock OTLP collectors,
    so a missing stdlib class/method surfaces as a test failure.
 
-Current result: **1,761,445 → 294,454 bytes (~83.3 % reduction)** against
-`kotlin-stdlib` 2.2.21 (bundled with okhttp-jvm 5.3.2 / okio-jvm 3.16.4).
+Current result: **1,718,956 → 284,233 bytes (~83.5 % reduction)** against
+`kotlin-stdlib` 1.9.23 (bundled with okhttp 4.12.0 / okio-jvm 3.9.0).
 
 ## Layout
 
@@ -134,9 +134,9 @@ reachability — than the HTTP/1.1 tests:
 
 ## Important: keep okhttp/okio pinned to the bundled versions
 
-The bundled okhttp-jvm / okio / kotlin-stdlib versions are aligned with what
-`opentelemetry-exporter-sender-okhttp` declares (okhttp-jvm **5.3.2**, okio-jvm **3.16.4**,
-kotlin-stdlib **2.2.21**). Because the exact okhttp/okio version determines which
+The bundled okhttp / okio / kotlin-stdlib versions are aligned with what
+`opentelemetry-exporter-sender-okhttp` declares (okhttp **4.12.0**, okio-jvm **3.9.0**,
+kotlin-stdlib **1.9.23**). Because the exact okhttp/okio version determines which
 `kotlin-stdlib` members are reachable, this subproject forces okhttp/okio to the *bundled*
 versions (from `gradle.properties`) on both the shrink input and the test runtime classpath so
 the shrink and verification always reflect what actually ships — even if a future

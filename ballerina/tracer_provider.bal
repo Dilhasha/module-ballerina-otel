@@ -39,8 +39,11 @@ function initializeTracing() returns error? {
 
     // Validate protocol
     string lowerProtocol = tracesProtocol.toLowerAscii();
-    if lowerProtocol != "grpc" && lowerProtocol != "http" {
-        return error(string `invalid Otel configuration tracesProtocol: ${tracesProtocol}. Valid values are: grpc, GRPC, http, HTTP`);
+    if lowerProtocol != PROTOCOL_GRPC && lowerProtocol != PROTOCOL_HTTP_PROTOBUF && lowerProtocol != PROTOCOL_HTTP_JSON {
+        return error(string `invalid Otel configuration tracesProtocol: ${tracesProtocol}. Valid values are: grpc, http/protobuf, http/json`);
+    }
+    if lowerProtocol == PROTOCOL_HTTP_JSON {
+        return error(string `Otel configuration tracesProtocol '${PROTOCOL_HTTP_JSON}' is not yet supported. Use '${PROTOCOL_GRPC}' or '${PROTOCOL_HTTP_PROTOBUF}'`);
     }
 
     if !hasSupportedEndpointScheme(tracesEndpoint) {

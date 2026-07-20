@@ -43,6 +43,7 @@ import static org.testng.Assert.assertTrue;
 /**
  * Sanity checks that the expected kotlin-stdlib jar variant (original or slim) is on the
  * classpath and that okhttp/okio (the Kotlin-written libraries) work on top of it.
+ * No network unit tests.
  */
 public class KotlinStdlibVariantTest {
 

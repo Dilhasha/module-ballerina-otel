@@ -32,11 +32,15 @@ configurable string tracesLogLevel = "info";
 // OTEL_EXPORTER_OTLP_TRACES_HEADERS environment variable, e.g.
 // "api-key=key,other-header=value". Values may be percent-encoded.
 configurable string tracesExporterHeaders = "";
-configurable string tracesProtocol = "grpc"; // "grpc" or "http"
+// Exporter protocol: "grpc" (OTLP/gRPC), "http/protobuf" (OTLP/HTTP + protobuf)
+// or "http/json" (OTLP/HTTP + JSON). Note: "http/json" is not yet supported.
+configurable string tracesProtocol = "grpc";
 configurable map<string> tracesResourceAttributes = {};
 
 // Metrics configuration
 configurable string metricsEndpoint = "http://localhost:4317";
+// Exporter protocol: "grpc" (OTLP/gRPC), "http/protobuf" (OTLP/HTTP + protobuf)
+// or "http/json" (OTLP/HTTP + JSON). Note: "http/json" is not yet supported.
 configurable string metricsProtocol = "grpc";
 // Comma-separated key=value pairs, the same format as the
 // OTEL_EXPORTER_OTLP_METRICS_HEADERS environment variable. Values may be

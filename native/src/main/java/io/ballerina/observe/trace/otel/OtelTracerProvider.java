@@ -55,8 +55,9 @@ public class OtelTracerProvider implements TracerProvider {
     private static final AttributeKey<String> SERVICE_NAME = AttributeKey.stringKey("service.name");
     private static final PrintStream console = System.out;
 
-    // Protocol constants
-    private static final String PROTOCOL_HTTP = "http";
+    // Protocol constants. "http/json" is validated and rejected on the Ballerina side, so only
+    // "grpc" (OTLP/gRPC) and "http/protobuf" (OTLP/HTTP + protobuf) reach this layer.
+    private static final String PROTOCOL_HTTP_PROTOBUF = "http/protobuf";
     private static final String SCHEME_HTTPS = "https://";
 
     // Sampler type constants
@@ -101,7 +102,7 @@ public class OtelTracerProvider implements TracerProvider {
         OtelTracerProvider.resourceAttributes = resourceAttributes;
 
         String protocolValue = protocol.getValue();
-        boolean isHttpProtocol = PROTOCOL_HTTP.equals(protocolValue);
+        boolean isHttpProtocol = PROTOCOL_HTTP_PROTOBUF.equals(protocolValue);
         String reporterEndpoint = endpoint.getValue();
 
         // Create exporter based on protocol. The tracer provider is built lazily when a tracer is requested.

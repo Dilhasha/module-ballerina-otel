@@ -45,7 +45,9 @@ import java.util.concurrent.TimeUnit;
  * OpenTelemetry SDK based metrics exporter for Ballerina observe metrics.
  */
 public final class OtelMetricsProvider {
-    private static final String PROTOCOL_HTTP = "http";
+    // "http/json" is validated and rejected on the Ballerina side, so only "grpc" (OTLP/gRPC)
+    // and "http/protobuf" (OTLP/HTTP + protobuf) reach this layer.
+    private static final String PROTOCOL_HTTP_PROTOBUF = "http/protobuf";
     // "service.name" resource attribute key per the *stable* OTel resource semantic
     // conventions. Inlined (mirroring the OTel SDK's own Resource class) instead of
     // packing the semconv jar for this single constant.
@@ -90,7 +92,7 @@ public final class OtelMetricsProvider {
                 .build();
         meter = meterProvider.get("otel");
 
-        String transportProtocol = PROTOCOL_HTTP.equals(protocol.getValue()) ? "HTTP" : "gRPC";
+        String transportProtocol = PROTOCOL_HTTP_PROTOBUF.equals(protocol.getValue()) ? "HTTP" : "gRPC";
         String tls = endpoint.getValue().startsWith(SCHEME_HTTPS) ? "S" : "";
         console.println("ballerina: started publishing metrics to Otel on "
                 + endpoint.getValue() + " [" + transportProtocol + tls + "]");
@@ -134,7 +136,7 @@ public final class OtelMetricsProvider {
 
     private static MetricExporter buildExporter(String endpoint, String protocol,
                                                 BMap<BString, BString> exporterHeaders, int exportTimeoutMillis) {
-        if (PROTOCOL_HTTP.equals(protocol)) {
+        if (PROTOCOL_HTTP_PROTOBUF.equals(protocol)) {
             var builder = OtlpHttpMetricExporter.builder()
                     .setEndpoint(endpoint)
                     .setTimeout(exportTimeoutMillis, TimeUnit.MILLISECONDS);

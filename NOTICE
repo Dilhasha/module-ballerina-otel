@@ -1,0 +1,80 @@
+Ballerina OpenTelemetry (ballerina/otel) Extension
+Copyright 2026 WSO2 LLC. (http://www.wso2.org)
+
+This product is licensed by WSO2 LLC. under the Apache License, Version 2.0
+(the "License"); you may not use this product except in compliance with the
+License. A copy of the License is available in the accompanying LICENSE file
+and at http://www.apache.org/licenses/LICENSE-2.0.
+
+This product bundles the following third-party components in the published
+Ballerina package (under modules/*/platform/java21 of the generated `.bala`).
+Each component is redistributed under its own license, reproduced/summarised
+below. This NOTICE file is provided in accordance with section 4(d) of the
+Apache License, Version 2.0.
+
+================================================================================
+Kotlin Standard Library (kotlin-stdlib)
+================================================================================
+Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language
+contributors.
+
+Licensed under the Apache License, Version 2.0.
+Homepage: https://kotlinlang.org/
+Sources:  https://github.com/JetBrains/kotlin
+
+MODIFICATION NOTICE (Apache License 2.0, section 4(b)):
+  The kotlin-stdlib jar bundled with this package is NOT the original
+  artifact. It is a size-reduced ("slim") variant produced with ProGuard
+  (https://www.guardsquare.com/proguard): only the classes reachable from the
+  bundled OkHttp/Okio libraries are retained; all other classes and the
+  multi-release (META-INF/versions/**) entries are removed. No class was
+  optimized or obfuscated (ProGuard `-dontoptimize -dontobfuscate`), so every
+  surviving class is byte-identical to the corresponding class in the original
+  org.jetbrains.kotlin:kotlin-stdlib:1.9.23 artifact. The reproduction of this
+  procedure is described in the `size-reduction-test` subproject of the source
+  repository.
+
+The Kotlin standard library incorporates the following third-party code:
+  - Portions of libraries/stdlib/unsigned (UnsignedUtils) are derived from
+    Guava, Copyright (C) 2011 The Guava Authors, licensed under the
+    Apache License, Version 2.0.
+  - Portions of libraries/stdlib/jvm math utilities (MathJVM) are derived from
+    the Boost special math functions, Copyright Eric Ford & Hubert Holin 2001,
+    licensed under the Boost Software License, Version 1.0
+    (https://www.boost.org/LICENSE_1_0.txt). The Boost Software License does
+    not require reproduction of its text for machine-executable object code.
+
+================================================================================
+OkHttp (com.squareup.okhttp3:okhttp)
+================================================================================
+Copyright 2019 Square, Inc.
+Licensed under the Apache License, Version 2.0.
+Homepage: https://square.github.io/okhttp/
+Sources:  https://github.com/square/okhttp
+
+================================================================================
+Okio (com.squareup.okio:okio-jvm)
+================================================================================
+Copyright 2013 Square, Inc.
+Licensed under the Apache License, Version 2.0.
+Homepage: https://square.github.io/okio/
+Sources:  https://github.com/square/okio
+
+================================================================================
+OpenTelemetry Java (io.opentelemetry:*)
+================================================================================
+Copyright The OpenTelemetry Authors.
+Licensed under the Apache License, Version 2.0.
+Homepage: https://opentelemetry.io/
+Sources:  https://github.com/open-telemetry/opentelemetry-java
+
+Bundled OpenTelemetry artifacts:
+  - opentelemetry-sdk-trace
+  - opentelemetry-sdk-metrics
+  - opentelemetry-sdk-common
+  - opentelemetry-extension-incubator
+  - opentelemetry-exporter-otlp
+  - opentelemetry-exporter-otlp-common
+  - opentelemetry-exporter-common
+  - opentelemetry-exporter-sender-okhttp
+  - opentelemetry-sdk-extension-autoconfigure-spi

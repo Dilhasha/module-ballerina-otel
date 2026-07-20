@@ -74,7 +74,7 @@ public class MetricsProviderHttpExportTest {
         exporterHeaders.put(bString("x-size-test"), bString("enabled"));
         BMap<BString, BString> resourceAttributes = stringMap();
 
-        OtelMetricsProvider.initialize(bString(endpoint), bString("http"), exporterHeaders, resourceAttributes,
+        OtelMetricsProvider.initialize(bString(endpoint), bString("http/protobuf"), exporterHeaders, resourceAttributes,
                 bString(SERVICE_NAME), 200, 5000, bString(METRIC_PREFIX));
 
         BArray metrics = metricsArray();

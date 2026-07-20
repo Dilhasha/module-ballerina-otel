@@ -25,8 +25,11 @@ function initializeMetrics() returns error? {
     }
 
     string lowerProtocol = metricsProtocol.toLowerAscii();
-    if lowerProtocol != "http" && lowerProtocol != "grpc" {
-        return error("Invalid metrics protocol. Must be 'http' or 'grpc'");
+    if lowerProtocol != PROTOCOL_GRPC && lowerProtocol != PROTOCOL_HTTP_PROTOBUF && lowerProtocol != PROTOCOL_HTTP_JSON {
+        return error(string `invalid Otel configuration metricsProtocol: ${metricsProtocol}. Valid values are: grpc, http/protobuf, http/json`);
+    }
+    if lowerProtocol == PROTOCOL_HTTP_JSON {
+        return error(string `Otel configuration metricsProtocol '${PROTOCOL_HTTP_JSON}' is not yet supported. Use '${PROTOCOL_GRPC}' or '${PROTOCOL_HTTP_PROTOBUF}'`);
     }
 
     if !hasSupportedEndpointScheme(metricsEndpoint) {
