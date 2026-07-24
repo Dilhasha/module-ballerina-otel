@@ -95,7 +95,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/${System.getenv("packagePublishRepo")}")
+            url = uri("https://maven.pkg.github.com/ballerina-platform/module-ballerina-otel")
             credentials {
                 username = System.getenv("packageUser")
                 password = System.getenv("packagePAT")
