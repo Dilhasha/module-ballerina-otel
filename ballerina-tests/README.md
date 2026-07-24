@@ -256,7 +256,7 @@ through its **native OTLP receiver** and asserts on what the **Prometheus query 
 end to end. Prometheus 3.0 ingests OTLP natively (the receiver is stable since 3.0), so —
 unlike a multi-container stack — no separate collector or push gateway is required.
 
-```
+```text
 Ballerina app under test (prometheus-tests/main.bal, :9093)
         │  OTLP/HTTP export (tests/Config.toml → localhost:39090/api/v1/otlp/v1/metrics)
         ▼
