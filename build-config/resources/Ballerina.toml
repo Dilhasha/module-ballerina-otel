@@ -1,0 +1,112 @@
+# Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+#
+# WSO2 Inc. licenses this file to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[package]
+org = "ballerina"
+name = "otel"
+version = "@toml.version@"
+keywords = ["Type/Driver", "Area/Developer Tools", "Vendor/Otel", "Observability", "tracing"]
+distribution = "2201.13.4"
+
+[platform.java21]
+graalvmCompatible = true
+
+[[platform.java21.dependency]]
+path = "../native/build/libs/otel-extension-native-@project.version@.jar"
+groupId = "ballerina"
+artifactId = "otel-extension-native"
+version = "@project.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-sdk-trace-@opentelemetrySDK.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-sdk-trace"
+version = "@opentelemetrySDK.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-sdk-metrics-@opentelemetrySDK.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-sdk-metrics"
+version = "@opentelemetrySDK.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-sdk-common-@opentelemetrySDK.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-sdk-common"
+version = "@opentelemetrySDK.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-extension-incubator-@opentelemetryIncubator.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-extension-incubator"
+version = "@opentelemetryIncubator.version@"
+
+# NOTE: opentelemetry-api and opentelemetry-context are intentionally not
+# packed: ballerina-rt shades both artifacts and its copies always win
+# classloading. opentelemetry-sdk-logs is intentionally not packed: only the
+# (unused) OTLP log exporter classes reference it. opentelemetry-semconv is
+# not needed: the only used constant (service.name) is inlined in the native
+# code.
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-exporter-otlp-@opentelemetryExporter.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-exporter-otlp"
+version = "@opentelemetryExporter.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-exporter-otlp-common-@opentelemetryExporter.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-exporter-otlp-common"
+version = "@opentelemetryExporter.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-exporter-common-@opentelemetryExporter.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-exporter-common"
+version = "@opentelemetryExporter.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-exporter-sender-okhttp-@opentelemetryExporter.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-exporter-sender-okhttp"
+version = "@opentelemetryExporter.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/opentelemetry-sdk-extension-autoconfigure-spi-@opentelemetryExporter.version@.jar"
+groupId = "io.opentelemetry"
+artifactId = "opentelemetry-sdk-extension-autoconfigure-spi"
+version = "@opentelemetryExporter.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/okhttp-@okhttp.version@.jar"
+groupId = "com.squareup.okhttp3"
+artifactId = "okhttp"
+version = "@okhttp.version@"
+
+[[platform.java21.dependency]]
+path = "./lib/okio-jvm-@okio.version@.jar"
+groupId = "com.squareup.okio"
+artifactId = "okio-jvm"
+version = "@okio.version@"
+
+# kotlin-stdlib is bundled as a ProGuard-shrunk jar (see the size-reduction-test
+# subproject): only the classes reachable from okhttp/okio are kept.
+[[platform.java21.dependency]]
+path = "./lib/kotlin-stdlib-@kotlinStdlib.version@-slim.jar"
+groupId = "org.jetbrains.kotlin"
+artifactId = "kotlin-stdlib"
+version = "@kotlinStdlib.version@"

@@ -1,0 +1,33 @@
+# Prometheus end-to-end scenario: OTLP/HTTP metric export into a real,
+# self-hosted Prometheus backend using its native OTLP receiver (stable since
+# Prometheus 3.0); the tests assert through Prometheus' own query API
+# (/api/v1/query_range). This config is copied to tests/Config.toml by the
+# Gradle build before the `bal test` invocation (same mechanism as the
+# jaeger-tests / otel-collector-tests; see ballerina-tests/build.gradle). Do not
+# edit tests/Config.toml directly: it is generated and overwritten on every run.
+expectedServiceName = "ballerina-otel-prometheus-tests"
+
+# Prometheus HTTP API on the remapped host port; see
+# resources/prometheus/docker-compose.yml. Prometheus has no auth layer and no
+# organization concept, so queries hit the endpoint directly.
+prometheusEndpoint = "http://localhost:39090"
+
+[ballerina.observe]
+# Prometheus ingests metrics for this scenario, so tracing stays disabled.
+metricsEnabled = true
+metricsReporter = "otel"
+
+[ballerina.otel]
+# Prometheus' native OTLP receiver ingests OTLP/HTTP metrics at
+# /api/v1/otlp/v1/metrics on the remapped host port (39090 -> 9090); the
+# non-default port avoids clashing with a locally running Prometheus (see
+# resources/prometheus/docker-compose.yml). The SDK's OTLP/HTTP exporter sends
+# to the endpoint verbatim, so the full ingest path is given here.
+metricsEndpoint = "http://localhost:39090/api/v1/otlp/v1/metrics"
+metricsProtocol = "http/protobuf"
+# Export frequently so the metrics become queryable in Prometheus quickly.
+metricsExportIntervalMillis = 3000
+
+[ballerina.otel.metricsResourceAttributes]
+"service.name" = "ballerina-otel-prometheus-tests"
+"deployment.environment" = "test"

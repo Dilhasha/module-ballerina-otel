@@ -1,0 +1,282 @@
+/*
+ * Copyright (c) 2026 WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
+description = 'Ballerina - Otel Extension - Ballerina Tests'
+
+def testPackage = "otel-collector-tests"
+def ballerinaTomlFile = new File("${project.projectDir}/${testPackage}/Ballerina.toml")
+def ballerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/tests/Ballerina.toml")
+def jaegerTestPackage = "jaeger-tests"
+def jaegerBallerinaTomlFile = new File("${project.projectDir}/${jaegerTestPackage}/Ballerina.toml")
+def jaegerBallerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/tests/BallerinaJaeger.toml")
+def prometheusTestPackage = "prometheus-tests"
+def prometheusBallerinaTomlFile = new File("${project.projectDir}/${prometheusTestPackage}/Ballerina.toml")
+def prometheusBallerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/tests/BallerinaPrometheus.toml")
+def collectorContainerName = "otel-collector-test"
+def collectorComposeFile = "${project.projectDir}/resources/otel-collector/docker-compose.yml"
+def jaegerContainerName = "jaeger-test"
+def jaegerComposeFile = "${project.projectDir}/resources/jaeger/docker-compose.yml"
+def prometheusContainerName = "prometheus-test"
+def prometheusComposeFile = "${project.projectDir}/resources/prometheus/docker-compose.yml"
+// On plain Linux docker hosts, host.docker.internal must be mapped to the
+// host gateway explicitly (Docker Desktop / Rancher Desktop resolve it
+// natively, and the static mapping would break their resolution).
+def isLinux = !Os.isFamily(Os.FAMILY_WINDOWS) && !Os.isFamily(Os.FAMILY_MAC)
+def collectorComposeFileArgs = "-f ${collectorComposeFile}" +
+        (isLinux ? " -f ${project.projectDir}/resources/otel-collector/docker-compose.linux.yml" : "")
+
+def stripBallerinaExtensionVersion(String extVersion) {
+    if (extVersion.matches(project.ext.timestampedVersionRegex)) {
+        def splitVersion = extVersion.split('-')
+        if (splitVersion.length > 3) {
+            def strippedValues = splitVersion[0..-4]
+            return strippedValues.join('-')
+        } else {
+            return extVersion
+        }
+    } else {
+        return extVersion.replace("${project.ext.snapshotVersion}", "")
+    }
+}
+
+def tomlVersion = stripBallerinaExtensionVersion("${project.version}")
+
+task updateTomlVersions {
+    doLast {
+        def newBallerinaToml = ballerinaTomlFilePlaceHolder.text.replace("@toml.version@", tomlVersion)
+        ballerinaTomlFile.text = newBallerinaToml
+        def newJaegerBallerinaToml = jaegerBallerinaTomlFilePlaceHolder.text.replace("@toml.version@", tomlVersion)
+        jaegerBallerinaTomlFile.text = newJaegerBallerinaToml
+        def newPrometheusBallerinaToml = prometheusBallerinaTomlFilePlaceHolder.text.replace("@toml.version@", tomlVersion)
+        prometheusBallerinaTomlFile.text = newPrometheusBallerinaToml
+    }
+}
+
+task startOtelCollector {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${collectorContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (!stdOut.toString().contains(collectorContainerName)) {
+                println "Starting OpenTelemetry Collector"
+                exec {
+                    commandLine 'sh', '-c', "docker compose ${collectorComposeFileArgs} up -d"
+                }
+                sleep(10 * 1000)
+            } else {
+                println "OpenTelemetry Collector is already running"
+            }
+        }
+    }
+}
+
+task stopOtelCollector {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${collectorContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (stdOut.toString().contains(collectorContainerName)) {
+                println "Stopping OpenTelemetry Collector"
+                exec {
+                    commandLine 'sh', '-c', "docker compose ${collectorComposeFileArgs} down"
+                }
+            } else {
+                println "OpenTelemetry Collector is not running"
+            }
+        }
+    }
+}
+
+task startJaeger {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${jaegerContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (!stdOut.toString().contains(jaegerContainerName)) {
+                println "Starting Jaeger"
+                exec {
+                    commandLine 'sh', '-c', "docker compose -f ${jaegerComposeFile} up -d"
+                }
+                sleep(10 * 1000)
+            } else {
+                println "Jaeger is already running"
+            }
+        }
+    }
+}
+
+task stopJaeger {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${jaegerContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (stdOut.toString().contains(jaegerContainerName)) {
+                println "Stopping Jaeger"
+                exec {
+                    commandLine 'sh', '-c', "docker compose -f ${jaegerComposeFile} down"
+                }
+            } else {
+                println "Jaeger is not running"
+            }
+        }
+    }
+}
+
+task startPrometheus {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${prometheusContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (!stdOut.toString().contains(prometheusContainerName)) {
+                println "Starting Prometheus"
+                exec {
+                    commandLine 'sh', '-c', "docker compose -f ${prometheusComposeFile} up -d"
+                }
+                // Prometheus boots in seconds; the test's BeforeSuite
+                // additionally polls the query API before asserting, so a short
+                // warm-up is sufficient.
+                sleep(15 * 1000)
+            } else {
+                println "Prometheus is already running"
+            }
+        }
+    }
+}
+
+task stopPrometheus {
+    doLast {
+        if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+            def stdOut = new ByteArrayOutputStream()
+            exec {
+                commandLine 'sh', '-c', "docker ps --filter name=${prometheusContainerName} --filter status=running --format {{.Names}}"
+                standardOutput = stdOut
+            }
+            if (stdOut.toString().contains(prometheusContainerName)) {
+                println "Stopping Prometheus"
+                exec {
+                    // The TSDB lives inside the container, so `down` discards it
+                    // along with the container; nothing is left on the host.
+                    commandLine 'sh', '-c', "docker compose -f ${prometheusComposeFile} down"
+                }
+            } else {
+                println "Prometheus is not running"
+            }
+        }
+    }
+}
+
+task ballerinaTest {
+    // :otel-extension-ballerina:build also assembles the stdlib-equipped
+    // distribution at rootDir/target/ballerina-runtime used below.
+    dependsOn ':otel-extension-ballerina:build'
+    dependsOn ':otel-extension-ballerina:publishBalaFileToLocal'
+    dependsOn updateTomlVersions
+    dependsOn startOtelCollector
+    dependsOn startJaeger
+    dependsOn startPrometheus
+    finalizedBy stopOtelCollector
+    finalizedBy stopJaeger
+    finalizedBy stopPrometheus
+
+    doLast {
+        // Runs `bal test` once per scenario. Each scenario is a separate
+        // invocation because the otel exporter configuration is fixed for the
+        // lifetime of a run. `bal test` ignores a caller-provided
+        // BAL_CONFIG_FILES environment variable, so the scenario config is
+        // copied to tests/Config.toml (which Testerina always picks up) and
+        // the matching test cases are selected through --groups.
+        def runBalTestIn = { String packageDir, String testParams, String configFile ->
+            new File("${project.projectDir}/${packageDir}/tests/Config.toml").text =
+                    new File("${project.projectDir}/${packageDir}/tests/configs/${configFile}").text
+            exec {
+                workingDir "${project.projectDir}/${packageDir}"
+                environment "BALLERINA_HOME_DIR", rootProject.ext.ballerinaHomeDir
+                environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"
+                if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                    commandLine 'cmd', '/c',
+                            "${rootProject.distributionBinPath}/bal.bat test ${testParams} && exit %%ERRORLEVEL%%"
+                } else {
+                    commandLine 'sh', '-c', "${rootProject.distributionBinPath}/bal test ${testParams}"
+                }
+            }
+        }
+        def runBalTest = { String testParams, String configFile ->
+            runBalTestIn(testPackage, testParams, configFile)
+        }
+
+        if (project.hasProperty("debug")) {
+            // Debugging runs only the default (OTLP/HTTP) scenario.
+            runBalTest("--debug ${project.findProperty("debug")} --groups export", "default.toml")
+            return
+        }
+
+        println "Running Ballerina tests: OTLP/HTTP export scenario"
+        runBalTest("--code-coverage --coverage-format=xml --groups export", "default.toml")
+        println "Running Ballerina tests: OTLP/gRPC export scenario"
+        runBalTest("--groups export", "grpc.toml")
+        println "Running Ballerina tests: always_off sampler scenario"
+        runBalTest("--groups sampler-off", "sampler_off.toml")
+        println "Running Ballerina tests: parentbased_always_on sampler scenario"
+        runBalTest("--groups parent-based", "parentbased.toml")
+        println "Running Ballerina tests: unreachable endpoint scenario"
+        runBalTest("--groups unreachable", "unreachable.toml")
+        println "Running Ballerina tests: Jaeger end-to-end scenario"
+        runBalTestIn(jaegerTestPackage, "", "default.toml")
+        println "Running Ballerina tests: Prometheus metrics end-to-end scenario"
+        runBalTestIn(prometheusTestPackage, "", "default.toml")
+    }
+}
+
+// The collector tests need a local docker daemon; allow skipping them with
+// `-PskipBalTests` (the collector start/stop tasks are skipped on Windows).
+if (!project.hasProperty("skipBalTests") && !Os.isFamily(Os.FAMILY_WINDOWS)) {
+    test.dependsOn ballerinaTest
+}
+
+clean {
+    delete "${project.projectDir}/${testPackage}/target"
+    delete "${project.projectDir}/${testPackage}/Ballerina.lock"
+    delete "${project.projectDir}/${testPackage}/ballerina-internal.log"
+    // Generated per scenario run from tests/configs/ by the ballerinaTest task.
+    delete "${project.projectDir}/${testPackage}/tests/Config.toml"
+    delete "${project.projectDir}/${jaegerTestPackage}/target"
+    delete "${project.projectDir}/${jaegerTestPackage}/Ballerina.lock"
+    delete "${project.projectDir}/${jaegerTestPackage}/ballerina-internal.log"
+    delete "${project.projectDir}/${jaegerTestPackage}/tests/Config.toml"
+    delete "${project.projectDir}/${prometheusTestPackage}/target"
+    delete "${project.projectDir}/${prometheusTestPackage}/Ballerina.lock"
+    delete "${project.projectDir}/${prometheusTestPackage}/ballerina-internal.log"
+    delete "${project.projectDir}/${prometheusTestPackage}/tests/Config.toml"
+}

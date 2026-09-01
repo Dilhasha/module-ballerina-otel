@@ -1,0 +1,12 @@
+{
+  "resources":{
+  "includes":[
+    {
+      "pattern":"\\QMETA-INF/services/io.ballerina.runtime.observability.tracer.spi.TracerProvider\\E"
+    },
+    {
+      "pattern":"\\QMETA-INF/services/io.opentelemetry.context.ContextStorageProvider\\E"
+    }
+  ]},
+  "bundles":[]
+}
