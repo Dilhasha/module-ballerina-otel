@@ -5,6 +5,41 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![codecov](https://codecov.io/gh/ballerina-platform/module-ballerina-otel/branch/main/graph/badge.svg?token=5GCQ36HBEB)](https://codecov.io/gh/ballerina-platform/module-ballerina-otel)
 
+## Runtime compatibility
+
+`main` uses OpenTelemetry 1.65.0 and requires the Ballerina runtime
+`2201.14.0-SNAPSHOT` configured in `gradle.properties`.
+The Gradle build downloads and uses that distribution. Applications using this
+extension must also use a compatible runtime: the standard 2201.13.4 distribution
+contains the older OpenTelemetry API/context and is supported by `version-0.9.0`.
+Both branches use `grpc` or `http/protobuf` for traces and metrics; `http/json`
+is recognized but not yet supported.
+
+### Package selection across Ballerina updates
+
+- Keep `ballerina/otel:0.9.x` built with Ballerina `2201.13.x` for Update 13 users.
+- Build `ballerina/otel:1.0.0` with Update 14 and bundle it in `2201.14.0`.
+- Central filters candidates using `package.json`'s `ballerina_version`, written by
+  the compiler that packs the BALA. The `distribution` declaration alone is not
+  the registry compatibility gate. Use the Update 14 release compiler for the GA artifact.
+- Update 14 also considers older packages distribution-compatible. Applications
+  pinned to `0.9.x` need an explicit upgrade to `1.0.0`; version ranges and lockfiles
+  do not automatically cross this major-version boundary.
+
+The distribution consumes the `org.ballerinalang:otel-extension-ballerina:1.0.0`
+Maven ZIP. For local distribution builds, publish it to Maven local:
+
+```sh
+./gradlew :otel-extension-ballerina:publishToMavenLocal :otel-extension-native:publishToMavenLocal -x commitTomlFiles
+```
+
+Then build the distribution with `otelVersion=1.0.0`. Release CI also needs these
+Maven artifacts in its configured repository and the BALA published to Central
+for users who resolve it there.
+
+See the registry's [distribution compatibility filter](https://github.com/wso2-enterprise/ballerina-registry/blob/main/projects/package_api/modules/utils/utils.bal#L261)
+and [dependency version ranges](https://github.com/wso2-enterprise/ballerina-registry/blob/main/projects/package_api/modules/utils/utils.bal#L473).
+
 ## Building from the Source
 
 ### Setting Up the Prerequisites

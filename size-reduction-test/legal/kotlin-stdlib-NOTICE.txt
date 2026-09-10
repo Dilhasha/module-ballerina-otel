@@ -12,7 +12,7 @@ Sources:  https://github.com/JetBrains/kotlin
 --------------------------------------------------------------------------------
 MODIFICATION NOTICE (Apache License 2.0, section 4(b))
 --------------------------------------------------------------------------------
-This jar is NOT the original org.jetbrains.kotlin:kotlin-stdlib:1.9.23 artifact.
+This jar is NOT the original org.jetbrains.kotlin:kotlin-stdlib:2.2.21 artifact.
 It is a size-reduced ("slim") variant produced with ProGuard
 (https://www.guardsquare.com/proguard) by the Ballerina OpenTelemetry extension
 (org.ballerinalang:otel).

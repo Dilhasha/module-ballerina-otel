@@ -30,7 +30,7 @@ MODIFICATION NOTICE (Apache License 2.0, section 4(b)):
   multi-release (META-INF/versions/**) entries are removed. No class was
   optimized or obfuscated (ProGuard `-dontoptimize -dontobfuscate`), so every
   surviving class is byte-identical to the corresponding class in the original
-  org.jetbrains.kotlin:kotlin-stdlib:1.9.23 artifact. The reproduction of this
+  org.jetbrains.kotlin:kotlin-stdlib:2.2.21 artifact. The reproduction of this
   procedure is described in the `size-reduction-test` subproject of the source
   repository.
 
@@ -45,7 +45,7 @@ The Kotlin standard library incorporates the following third-party code:
     not require reproduction of its text for machine-executable object code.
 
 ================================================================================
-OkHttp (com.squareup.okhttp3:okhttp)
+OkHttp (com.squareup.okhttp3:okhttp-jvm)
 ================================================================================
 Copyright 2019 Square, Inc.
 Licensed under the Apache License, Version 2.0.
@@ -72,9 +72,8 @@ Bundled OpenTelemetry artifacts:
   - opentelemetry-sdk-trace
   - opentelemetry-sdk-metrics
   - opentelemetry-sdk-common
-  - opentelemetry-extension-incubator
+  - opentelemetry-common
   - opentelemetry-exporter-otlp
   - opentelemetry-exporter-otlp-common
   - opentelemetry-exporter-common
   - opentelemetry-exporter-sender-okhttp
-  - opentelemetry-sdk-extension-autoconfigure-spi

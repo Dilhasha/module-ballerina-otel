@@ -9,6 +9,16 @@ The Otel Observability Extension provides an implementation for tracing and publ
 - Support for trace logging to console and file
 - Configurable reporter flush interval and buffer size
 
+## Runtime compatibility
+
+`main` uses OpenTelemetry 1.65.0 and requires the Ballerina runtime
+`2201.14.0-SNAPSHOT` configured in `gradle.properties`.
+The Gradle build downloads and uses that distribution. Applications using this
+extension must also use a compatible runtime: the standard 2201.13.4 distribution
+contains the older OpenTelemetry API/context and is supported by `version-0.9.0`.
+Both branches use `grpc` or `http/protobuf` for traces and metrics; `http/json`
+is recognized but not yet supported.
+
 ## Enabling Otel Extension
 
 To package the Otel extension into the Jar, follow the following steps.
