@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.logging.Logger;
@@ -51,7 +52,7 @@ public class KotlinStdlibVariantTest {
     private static final String SLIM_VARIANT = "slim";
 
     @Test
-    public void testExpectedKotlinStdlibVariantIsLoaded() throws Exception {
+    public void testExpectedKotlinStdlibVariantIsLoaded() throws URISyntaxException {
         String variant = System.getProperty(VARIANT_PROPERTY, "original");
         URL location = kotlin.Unit.class.getProtectionDomain().getCodeSource().getLocation();
         assertNotNull(location, "kotlin-stdlib code source location");

@@ -19,6 +19,7 @@ package io.ballerina.observe.trace.otel.logging;
 
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
@@ -60,7 +61,7 @@ public final class OtelTraceLogger {
                 otelSdkLogger.addHandler(fileHandler);
 
             } catch (IOException e) {
-                throw new RuntimeException("failed to setup Otel trace log file: " + logFilePath, e);
+                throw new UncheckedIOException("failed to setup Otel trace log file: " + logFilePath, e);
             }
         }
         traceLogger.setUseParentHandlers(false);

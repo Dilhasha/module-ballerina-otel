@@ -42,29 +42,4 @@
         <Class name="~io\.ballerina\.observe\.trace\.otel\.sizetest\..*"/>
         <Bug pattern="DP_DO_INSIDE_DO_PRIVILEGED"/>
     </Match>
-    <!-- gradle9-rollout: temporary suppression pending review: surfaced by the SpotBugs plugin version bump needed for Gradle 9 / Java 25 support (see PR body); pre-existing code, not introduced by this PR -->
-    <Match>
-        <Class name="io.ballerina.observe.trace.otel.sizetest.KotlinStdlibVariantTest"/>
-        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
-    </Match>
-    <Match>
-        <Class name="io.ballerina.observe.trace.otel.sizetest.MetricsProviderGrpcExportTest"/>
-        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
-    </Match>
-    <Match>
-        <Class name="io.ballerina.observe.trace.otel.sizetest.MetricsProviderHttpExportTest"/>
-        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
-    </Match>
-    <Match>
-        <Class name="io.ballerina.observe.trace.otel.sizetest.OtelExportTestUtils"/>
-        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
-    </Match>
-    <Match>
-        <Class name="io.ballerina.observe.trace.otel.sizetest.TracerProviderGrpcExportTest"/>
-        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
-    </Match>
-    <Match>
-        <Class name="io.ballerina.observe.trace.otel.sizetest.TracerProviderHttpExportTest"/>
-        <Bug pattern="THROWS_METHOD_THROWS_CLAUSE_BASIC_EXCEPTION"/>
-    </Match>
 </FindBugsFilter>

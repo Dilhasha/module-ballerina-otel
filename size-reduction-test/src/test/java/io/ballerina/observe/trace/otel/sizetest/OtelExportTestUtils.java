@@ -31,6 +31,7 @@ import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
@@ -116,9 +117,10 @@ final class OtelExportTestUtils {
      * Force-flushes the shared {@code BatchSpanProcessor} of {@code OtelTracerProvider}
      * so buffered spans are exported immediately.
      *
-     * @throws Exception if the processor cannot be accessed
+     * @throws NoSuchFieldException if the processor cannot be accessed
+     * @throws IllegalAccessException if the processor cannot be accessed
      */
-    static void forceFlushSpans() throws Exception {
+    static void forceFlushSpans() throws NoSuchFieldException, IllegalAccessException {
         Field field = OtelTracerProvider.class.getDeclaredField("spanProcessor");
         field.setAccessible(true);
         BatchSpanProcessor processor = (BatchSpanProcessor) field.get(null);
@@ -130,22 +132,29 @@ final class OtelExportTestUtils {
     /**
      * Shuts down the {@code OtelTracerProvider} singleton between tests.
      *
-     * @throws Exception if the shutdown method cannot be invoked
+     * @throws NoSuchMethodException if the shutdown method cannot be found
+     * @throws IllegalAccessException if the shutdown method cannot be invoked
+     * @throws InvocationTargetException if the shutdown method throws
      */
-    static void shutdownTracerProvider() throws Exception {
+    static void shutdownTracerProvider() throws NoSuchMethodException, IllegalAccessException,
+            InvocationTargetException {
         invokeShutdown(OtelTracerProvider.class);
     }
 
     /**
      * Shuts down the {@code OtelMetricsProvider} singleton between tests.
      *
-     * @throws Exception if the shutdown method cannot be invoked
+     * @throws NoSuchMethodException if the shutdown method cannot be found
+     * @throws IllegalAccessException if the shutdown method cannot be invoked
+     * @throws InvocationTargetException if the shutdown method throws
      */
-    static void shutdownMetricsProvider() throws Exception {
+    static void shutdownMetricsProvider() throws NoSuchMethodException, IllegalAccessException,
+            InvocationTargetException {
         invokeShutdown(OtelMetricsProvider.class);
     }
 
-    private static void invokeShutdown(Class<?> providerClass) throws Exception {
+    private static void invokeShutdown(Class<?> providerClass) throws NoSuchMethodException,
+            IllegalAccessException, InvocationTargetException {
         Method method = providerClass.getDeclaredMethod("shutdownCurrentProvider");
         method.setAccessible(true);
         method.invoke(null);
