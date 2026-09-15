@@ -25,6 +25,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 
 import static io.ballerina.observe.trace.otel.sizetest.OtelExportTestUtils.bString;
@@ -54,12 +56,12 @@ public class MetricsProviderHttpExportTest {
     private MockOtlpCollector collector;
 
     @BeforeMethod
-    public void setUp() throws Exception {
+    public void setUp() throws IOException {
         collector = MockOtlpCollector.start();
     }
 
     @AfterMethod
-    public void tearDown() throws Exception {
+    public void tearDown() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         try {
             shutdownMetricsProvider();
         } finally {
@@ -68,7 +70,7 @@ public class MetricsProviderHttpExportTest {
     }
 
     @Test
-    public void testMetricExportOverHttpReachesCollector() throws Exception {
+    public void testMetricExportOverHttpReachesCollector() throws InterruptedException {
         String endpoint = collector.baseUrl() + "/v1/metrics";
         BMap<BString, BString> exporterHeaders = stringMap();
         exporterHeaders.put(bString("x-size-test"), bString("enabled"));

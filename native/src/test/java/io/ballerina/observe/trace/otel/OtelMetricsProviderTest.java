@@ -30,6 +30,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
@@ -47,14 +48,15 @@ public class OtelMetricsProviderTest {
     private static final String METRIC_PREFIX = "metricPrefix";
 
     @BeforeMethod
-    public void resetMetricsState() throws Exception {
+    public void resetMetricsState() throws NoSuchFieldException, IllegalAccessException {
         setStaticField(COUNTERS, Map.of());
         setStaticField(GAUGES, Map.of());
         setStaticField(METRIC_PREFIX, "");
     }
 
     @Test
-    public void testUpdateMetricsSnapshotsCountersAndGauges() throws Exception {
+    public void testUpdateMetricsSnapshotsCountersAndGauges() throws NoSuchFieldException, IllegalAccessException,
+            NoSuchMethodException, InvocationTargetException {
         setStaticField(METRIC_PREFIX, "svc");
 
         BArray metrics = metricsArray();
@@ -88,7 +90,7 @@ public class OtelMetricsProviderTest {
     }
 
     @Test
-    public void testUpdateMetricsIgnoresMalformedMetrics() throws Exception {
+    public void testUpdateMetricsIgnoresMalformedMetrics() throws NoSuchFieldException, IllegalAccessException {
         BArray metrics = metricsArray();
         BMap<BString, Object> missingValue = map();
         missingValue.put(bString("name"), bString("broken_metric"));
@@ -103,7 +105,8 @@ public class OtelMetricsProviderTest {
     }
 
     @Test
-    public void testBuildResourceAttributesUsesConfiguredServiceName() throws Exception {
+    public void testBuildResourceAttributesUsesConfiguredServiceName() throws NoSuchMethodException,
+            IllegalAccessException, InvocationTargetException {
         BMap<BString, Object> resourceAttributes = map();
         resourceAttributes.put(bString("service.name"), bString("orders"));
         resourceAttributes.put(bString("deployment.environment"), bString("dev"));
@@ -118,7 +121,8 @@ public class OtelMetricsProviderTest {
     }
 
     @Test
-    public void testBuildResourceAttributesUsesRuntimeServiceName() throws Exception {
+    public void testBuildResourceAttributesUsesRuntimeServiceName() throws NoSuchMethodException,
+            IllegalAccessException, InvocationTargetException {
         Attributes attributes = invokeBuildResourceAttributes("runtime-service", null);
 
         assertEquals(attributes.get(AttributeKey.stringKey("service.name")), "runtime-service");
@@ -156,27 +160,30 @@ public class OtelMetricsProviderTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T getStaticField(String fieldName) throws Exception {
+    private static <T> T getStaticField(String fieldName) throws NoSuchFieldException, IllegalAccessException {
         Field field = OtelMetricsProvider.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         return (T) field.get(null);
     }
 
-    private static void setStaticField(String fieldName, Object value) throws Exception {
+    private static void setStaticField(String fieldName, Object value) throws NoSuchFieldException,
+            IllegalAccessException {
         Field field = OtelMetricsProvider.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(null, value);
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T recordValue(Object record, String methodName) throws Exception {
+    private static <T> T recordValue(Object record, String methodName) throws NoSuchMethodException,
+            IllegalAccessException, InvocationTargetException {
         Method method = record.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
         return (T) method.invoke(record);
     }
 
     private static Attributes invokeBuildResourceAttributes(String serviceName,
-                                                            BMap<BString, Object> resourceAttributes) throws Exception {
+                                                            BMap<BString, Object> resourceAttributes)
+            throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         Method method = OtelMetricsProvider.class.getDeclaredMethod(
                 "buildResourceAttributes", String.class, BMap.class);
         method.setAccessible(true);

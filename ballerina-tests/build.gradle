@@ -17,6 +17,13 @@
  */
 
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.process.ExecOperations
+
+import javax.inject.Inject
+
+abstract class BallerinaExecHelper {
+    @Inject abstract ExecOperations getExecOperations()
+}
 
 description = 'Ballerina - Otel Extension - Ballerina Tests'
 
@@ -70,16 +77,17 @@ task updateTomlVersions {
 }
 
 task startOtelCollector {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
             def stdOut = new ByteArrayOutputStream()
-            exec {
+            execHelper.execOperations.exec {
                 commandLine 'sh', '-c', "docker ps --filter name=${collectorContainerName} --filter status=running --format {{.Names}}"
                 standardOutput = stdOut
             }
             if (!stdOut.toString().contains(collectorContainerName)) {
                 println "Starting OpenTelemetry Collector"
-                exec {
+                execHelper.execOperations.exec {
                     commandLine 'sh', '-c', "docker compose ${collectorComposeFileArgs} up -d"
                 }
                 sleep(10 * 1000)
@@ -91,16 +99,17 @@ task startOtelCollector {
 }
 
 task stopOtelCollector {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
             def stdOut = new ByteArrayOutputStream()
-            exec {
+            execHelper.execOperations.exec {
                 commandLine 'sh', '-c', "docker ps --filter name=${collectorContainerName} --filter status=running --format {{.Names}}"
                 standardOutput = stdOut
             }
             if (stdOut.toString().contains(collectorContainerName)) {
                 println "Stopping OpenTelemetry Collector"
-                exec {
+                execHelper.execOperations.exec {
                     commandLine 'sh', '-c', "docker compose ${collectorComposeFileArgs} down"
                 }
             } else {
@@ -111,16 +120,17 @@ task stopOtelCollector {
 }
 
 task startJaeger {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
             def stdOut = new ByteArrayOutputStream()
-            exec {
+            execHelper.execOperations.exec {
                 commandLine 'sh', '-c', "docker ps --filter name=${jaegerContainerName} --filter status=running --format {{.Names}}"
                 standardOutput = stdOut
             }
             if (!stdOut.toString().contains(jaegerContainerName)) {
                 println "Starting Jaeger"
-                exec {
+                execHelper.execOperations.exec {
                     commandLine 'sh', '-c', "docker compose -f ${jaegerComposeFile} up -d"
                 }
                 sleep(10 * 1000)
@@ -132,16 +142,17 @@ task startJaeger {
 }
 
 task stopJaeger {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
             def stdOut = new ByteArrayOutputStream()
-            exec {
+            execHelper.execOperations.exec {
                 commandLine 'sh', '-c', "docker ps --filter name=${jaegerContainerName} --filter status=running --format {{.Names}}"
                 standardOutput = stdOut
             }
             if (stdOut.toString().contains(jaegerContainerName)) {
                 println "Stopping Jaeger"
-                exec {
+                execHelper.execOperations.exec {
                     commandLine 'sh', '-c', "docker compose -f ${jaegerComposeFile} down"
                 }
             } else {
@@ -152,16 +163,17 @@ task stopJaeger {
 }
 
 task startPrometheus {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
             def stdOut = new ByteArrayOutputStream()
-            exec {
+            execHelper.execOperations.exec {
                 commandLine 'sh', '-c', "docker ps --filter name=${prometheusContainerName} --filter status=running --format {{.Names}}"
                 standardOutput = stdOut
             }
             if (!stdOut.toString().contains(prometheusContainerName)) {
                 println "Starting Prometheus"
-                exec {
+                execHelper.execOperations.exec {
                     commandLine 'sh', '-c', "docker compose -f ${prometheusComposeFile} up -d"
                 }
                 // Prometheus boots in seconds; the test's BeforeSuite
@@ -176,16 +188,17 @@ task startPrometheus {
 }
 
 task stopPrometheus {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
         if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
             def stdOut = new ByteArrayOutputStream()
-            exec {
+            execHelper.execOperations.exec {
                 commandLine 'sh', '-c', "docker ps --filter name=${prometheusContainerName} --filter status=running --format {{.Names}}"
                 standardOutput = stdOut
             }
             if (stdOut.toString().contains(prometheusContainerName)) {
                 println "Stopping Prometheus"
-                exec {
+                execHelper.execOperations.exec {
                     // The TSDB lives inside the container, so `down` discards it
                     // along with the container; nothing is left on the host.
                     commandLine 'sh', '-c', "docker compose -f ${prometheusComposeFile} down"
@@ -198,6 +211,7 @@ task stopPrometheus {
 }
 
 task ballerinaTest {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     // :otel-extension-ballerina:build also assembles the stdlib-equipped
     // distribution at rootDir/target/ballerina-runtime used below.
     dependsOn ':otel-extension-ballerina:build'
@@ -220,7 +234,7 @@ task ballerinaTest {
         def runBalTestIn = { String packageDir, String testParams, String configFile ->
             new File("${project.projectDir}/${packageDir}/tests/Config.toml").text =
                     new File("${project.projectDir}/${packageDir}/tests/configs/${configFile}").text
-            exec {
+            execHelper.execOperations.exec {
                 workingDir "${project.projectDir}/${packageDir}"
                 environment "BALLERINA_HOME_DIR", rootProject.ext.ballerinaHomeDir
                 environment "JAVA_OPTS", "-DBALLERINA_DEV_COMPILE_BALLERINA_ORG=true"

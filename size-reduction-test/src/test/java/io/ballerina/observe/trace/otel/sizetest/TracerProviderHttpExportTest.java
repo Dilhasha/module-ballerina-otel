@@ -26,6 +26,8 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 
 import static io.ballerina.observe.trace.otel.sizetest.OtelExportTestUtils.bString;
@@ -55,12 +57,12 @@ public class TracerProviderHttpExportTest {
     private MockOtlpCollector collector;
 
     @BeforeMethod
-    public void setUp() throws Exception {
+    public void setUp() throws IOException {
         collector = MockOtlpCollector.start();
     }
 
     @AfterMethod
-    public void tearDown() throws Exception {
+    public void tearDown() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         try {
             shutdownTracerProvider();
         } finally {
@@ -69,7 +71,8 @@ public class TracerProviderHttpExportTest {
     }
 
     @Test
-    public void testSpanExportOverHttpReachesCollector() throws Exception {
+    public void testSpanExportOverHttpReachesCollector() throws NoSuchFieldException, IllegalAccessException,
+            InterruptedException {
         initializeTracerProvider();
 
         OtelTracerProvider tracerProvider = new OtelTracerProvider();
@@ -95,7 +98,8 @@ public class TracerProviderHttpExportTest {
     }
 
     @Test
-    public void testConsecutiveExportCyclesOverSameTransport() throws Exception {
+    public void testConsecutiveExportCyclesOverSameTransport() throws NoSuchFieldException, IllegalAccessException,
+            InterruptedException {
         initializeTracerProvider();
 
         OtelTracerProvider tracerProvider = new OtelTracerProvider();

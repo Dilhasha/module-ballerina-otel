@@ -17,6 +17,13 @@
  */
 
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.process.ExecOperations
+
+import javax.inject.Inject
+
+abstract class BallerinaExecHelper {
+    @Inject abstract ExecOperations getExecOperations()
+}
 
 plugins {
     id 'io.ballerina.plugin'
@@ -26,13 +33,14 @@ description = 'Ballerina - Otel Extension - Ballerina Module'
 
 def packageName = "otel"
 def packageOrg = "ballerina"
-def platform = "java21"
 def tomlVersion = stripBallerinaExtensionVersion("${project.version}")
 def ballerinaTomlFilePlaceHolder = new File("${project.rootDir}/build-config/resources/Ballerina.toml")
 def ballerinaTomlFile = new File("${project.projectDir}/Ballerina.toml")
 // `bal pack` output location used by io.ballerina.plugin's build task.
 def balBuildTarget = "build/bal_build_target"
-def artifactJar = file("${project.projectDir}/${balBuildTarget}/cache/${packageOrg}/${packageName}/${tomlVersion}/${platform}/")
+// The platform directory (java21, java25, ...) is chosen by the Ballerina
+// distribution in use, so it is matched instead of hardcoded.
+def artifactCacheDir = file("${project.projectDir}/${balBuildTarget}/cache/${packageOrg}/${packageName}/${tomlVersion}")
 
 def stripBallerinaExtensionVersion(String extVersion) {
     if (extVersion.matches(project.ext.timestampedVersionRegex)) {
@@ -169,8 +177,9 @@ task updateTomlFiles {
 }
 
 task commitTomlFiles {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     doLast {
-        project.exec {
+        execHelper.execOperations.exec {
             ignoreExitValue true
             if (Os.isFamily(Os.FAMILY_WINDOWS)) {
                 commandLine 'cmd', '/c', "git commit -m \"[Automated] Update the native jar versions\" Ballerina.toml Dependencies.toml"
@@ -214,7 +223,7 @@ task extractBallerinaClassFiles(type: Copy) {
     dependsOn build
 
     from {
-        fileTree(artifactJar).collect { file ->
+        fileTree(artifactCacheDir) { include 'java*/*.jar' }.collect { file ->
             zipTree(file).matching {
                 exclude '**/tests/*'
                 include '**/*.class'
@@ -228,13 +237,18 @@ task extractBallerinaClassFiles(type: Copy) {
 // home (rootProject.ext.ballerinaHomeDir), from where the packages in
 // ballerina-tests resolve `ballerina/otel`.
 task publishBalaFileToLocal {
+    def execHelper = project.objects.newInstance(BallerinaExecHelper)
     // build (via updateTomlFiles -> copyStdlibs -> unpackJballerinaTools)
     // assembles the stdlib-equipped distribution at target/ballerina-runtime.
     dependsOn build
 
+    def balaDir = file("${project.projectDir}/${balBuildTarget}/bala")
     doLast {
-        def balaFileName = "${packageOrg}-${packageName}-${platform}-${tomlVersion}.bala"
-        exec {
+        // The platform in the bala name (java21, java25, ...) depends on the distribution in use.
+        def balaFileName = fileTree(balaDir) {
+            include "${packageOrg}-${packageName}-*-${tomlVersion}.bala"
+        }.singleFile.name
+        execHelper.execOperations.exec {
             workingDir project.projectDir
             environment "BALLERINA_HOME_DIR", rootProject.ext.ballerinaHomeDir
             if (Os.isFamily(Os.FAMILY_WINDOWS)) {

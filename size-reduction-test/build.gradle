@@ -101,14 +101,44 @@ dependencies {
 // Raw ProGuard output (shrunk classes + kotlin_module resources, with the
 // original -- now stale -- multi-release manifest). finalizeSlimKotlinStdlib
 // repackages this into the jar that actually ships (kotlinSlimJar).
-def kotlinSlimRawJar = file("${buildDir}/tmp/proguard/kotlin-stdlib-${kotlinStdlibVersion}-slim-raw.jar")
-def kotlinSlimJar = file("${buildDir}/libs/kotlin-stdlib-${kotlinStdlibVersion}-slim.jar")
-def shrinkDiscardJar = file("${buildDir}/tmp/proguard/shrink-roots-discard.jar")
+def kotlinSlimRawJar = layout.buildDirectory.file("tmp/proguard/kotlin-stdlib-${kotlinStdlibVersion}-slim-raw.jar").get().asFile
+def kotlinSlimJar = layout.buildDirectory.file("libs/kotlin-stdlib-${kotlinStdlibVersion}-slim.jar").get().asFile
+def shrinkDiscardJar = layout.buildDirectory.file("tmp/proguard/shrink-roots-discard.jar").get().asFile
 // Apache 2.0 attribution files embedded into the redistributed (modified)
 // kotlin-stdlib jar so the license/notice travel with the artifact inside the
 // published Ballerina package. The Apache 2.0 text is shared with the repo root.
 def kotlinSlimLicenseFile = file("${rootDir}/LICENSE")
 def kotlinSlimNoticeFile = file("legal/kotlin-stdlib-NOTICE.txt")
+def jdkLibraryModules = ['java.base', 'java.logging']
+def jdkLibraryJar = layout.buildDirectory.file("tmp/proguard/jdk-library-classes.jar").get().asFile
+
+// ProGuard needs the JDK platform classes as library jars. JDK 24+ builds with
+// JEP 493 (e.g. Temurin) no longer ship jmods/, so read them from jrt:/ instead.
+tasks.register('extractJdkLibraryClasses') {
+    group = 'build'
+    description = 'Exports the JDK platform classes needed by shrinkKotlinStdlib into a jar.'
+    inputs.property 'javaVersion', System.getProperty('java.version')
+    inputs.property 'modules', jdkLibraryModules
+    outputs.file jdkLibraryJar
+    doLast {
+        def jrt = java.nio.file.FileSystems.getFileSystem(URI.create('jrt:/'))
+        jdkLibraryJar.parentFile.mkdirs()
+        new java.util.zip.ZipOutputStream(new FileOutputStream(jdkLibraryJar)).withCloseable { zip ->
+            jdkLibraryModules.each { module ->
+                def moduleRoot = jrt.getPath('modules', module)
+                java.nio.file.Files.walk(moduleRoot).withCloseable { paths ->
+                    paths.filter { it.toString().endsWith('.class') && !it.endsWith('module-info.class') }
+                            .sorted()
+                            .forEach { classFile ->
+                                zip.putNextEntry(new java.util.zip.ZipEntry(moduleRoot.relativize(classFile).toString()))
+                                zip.write(java.nio.file.Files.readAllBytes(classFile))
+                                zip.closeEntry()
+                            }
+                }
+            }
+        }
+    }
+}
 
 // Shrink-only ProGuard pass: okhttp + okio are kept in full (they are the only
 // consumers of kotlin-stdlib in this module), every kotlin-stdlib class/member
@@ -128,15 +158,13 @@ tasks.register('shrinkKotlinStdlib', proguard.gradle.ProGuardTask) {
     outjars(kotlinSlimRawJar, filter: 'kotlin/**,META-INF/**')
     outjars(shrinkDiscardJar)
 
-    libraryjars "${System.getProperty('java.home')}/jmods/java.base.jmod",
-            jarfilter: '!**.jar', filter: '!module-info.class'
-    libraryjars "${System.getProperty('java.home')}/jmods/java.logging.jmod",
-            jarfilter: '!**.jar', filter: '!module-info.class'
+    dependsOn tasks.named('extractJdkLibraryClasses')
+    libraryjars jdkLibraryJar
     libraryjars configurations.shrinkLibraries
 
     configuration file('proguard/kotlin-stdlib-slim.pro')
 
-    printusage file("${buildDir}/proguard/removed-from-kotlin-stdlib.txt")
+    printusage layout.buildDirectory.file("proguard/removed-from-kotlin-stdlib.txt").get().asFile
 }
 
 // Repackage the raw ProGuard output into the jar that actually ships:

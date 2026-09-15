@@ -37,6 +37,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
@@ -60,7 +61,7 @@ public class OtelTracerProviderTest {
     private OtelTracerProvider tracerProvider;
 
     @BeforeMethod
-    public void setUp() throws Exception {
+    public void setUp() throws NoSuchFieldException, IllegalAccessException {
         tracerProvider = new OtelTracerProvider();
         // Reset shared static state so tests do not leak providers into each other
         OtelTracerProviderTest.<Map<?, ?>>getStaticField("tracers").clear();
@@ -90,7 +91,8 @@ public class OtelTracerProviderTest {
     }
 
     @Test
-    public void testBuildResourceAttributesUsesConfiguredServiceName() throws Exception {
+    public void testBuildResourceAttributesUsesConfiguredServiceName() throws NoSuchFieldException,
+            IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         BMap<BString, BString> resourceAttributes = map();
         resourceAttributes.put(bString("\"service.name\""), bString("orders"));
         resourceAttributes.put(bString("\"deployment.environment\""), bString("dev"));
@@ -104,7 +106,8 @@ public class OtelTracerProviderTest {
     }
 
     @Test
-    public void testShutdownClosesPendingExporter() throws Exception {
+    public void testShutdownClosesPendingExporter() throws NoSuchFieldException, IllegalAccessException,
+            NoSuchMethodException, InvocationTargetException {
         SpanExporter exporter = mock(SpanExporter.class);
         when(exporter.shutdown()).thenReturn(CompletableResultCode.ofSuccess());
         setStaticField("spanExporter", exporter);
@@ -116,7 +119,8 @@ public class OtelTracerProviderTest {
     }
 
     @Test
-    public void testGetTracerUsesPerServiceResourceServiceName() throws Exception {
+    public void testGetTracerUsesPerServiceResourceServiceName() throws NoSuchFieldException, IllegalAccessException,
+            NoSuchMethodException, InvocationTargetException {
         InMemorySpanExporter exporter = InMemorySpanExporter.create();
         setStaticField("spanExporter", exporter);
         setStaticField("sampler", Sampler.alwaysOn());
@@ -162,32 +166,36 @@ public class OtelTracerProviderTest {
         return StringUtils.fromString(value);
     }
 
-    private static void setStaticField(String fieldName, Object value) throws Exception {
+    private static void setStaticField(String fieldName, Object value) throws NoSuchFieldException,
+            IllegalAccessException {
         Field field = OtelTracerProvider.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(null, value);
     }
 
-    private static void setStaticIntField(String fieldName, int value) throws Exception {
+    private static void setStaticIntField(String fieldName, int value) throws NoSuchFieldException,
+            IllegalAccessException {
         Field field = OtelTracerProvider.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setInt(null, value);
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T getStaticField(String fieldName) throws Exception {
+    private static <T> T getStaticField(String fieldName) throws NoSuchFieldException, IllegalAccessException {
         Field field = OtelTracerProvider.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         return (T) field.get(null);
     }
 
-    private static Attributes invokeBuildResourceAttributes(String serviceName) throws Exception {
+    private static Attributes invokeBuildResourceAttributes(String serviceName) throws NoSuchMethodException,
+            IllegalAccessException, InvocationTargetException {
         Method method = OtelTracerProvider.class.getDeclaredMethod("buildResourceAttributes", String.class);
         method.setAccessible(true);
         return (Attributes) method.invoke(null, serviceName);
     }
 
-    private static void invokeShutdownCurrentProvider() throws Exception {
+    private static void invokeShutdownCurrentProvider() throws NoSuchMethodException, IllegalAccessException,
+            InvocationTargetException {
         Method method = OtelTracerProvider.class.getDeclaredMethod("shutdownCurrentProvider");
         method.setAccessible(true);
         method.invoke(null);

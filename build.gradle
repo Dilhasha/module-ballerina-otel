@@ -27,6 +27,10 @@ plugins {
     id "jacoco"
 }
 
+jacoco {
+    toolVersion = jacocoVersion
+}
+
 allprojects {
     group = project.group
     version = project.version
@@ -132,12 +136,22 @@ release {
     versionPropertyFile = 'gradle.properties'
     tagTemplate = 'v$version'
 
-    git.requireBranch = "release-${moduleVersion}"
-    git.pushToRemote = 'origin'
+    git {
+        requireBranch = "release-${moduleVersion}"
+        pushToRemote = 'origin'
+    }
 }
 
-task build {
-    dependsOn('otel-extension-ballerina:build')
+if (tasks.names.contains('build')) {
+    tasks.named('build') {
+        dependsOn('otel-extension-ballerina:build')
+
+    }
+} else {
+    tasks.register('build') {
+        dependsOn('otel-extension-ballerina:build')
+
+    }
 }
 
 task codeCoverageReport(type: JacocoReport) {
@@ -171,8 +185,8 @@ task codeCoverageReport(type: JacocoReport) {
     reports {
         xml.required = true
         html.required = true
-        xml.outputLocation = file("${buildDir}/reports/jacoco/report.xml")
-        html.outputLocation = file("${buildDir}/reports/jacoco/report.html")
+        xml.outputLocation = layout.buildDirectory.file("reports/jacoco/report.xml").get().asFile
+        html.outputLocation = layout.buildDirectory.file("reports/jacoco/report.html").get().asFile
     }
 
     onlyIf = {
