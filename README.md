@@ -8,7 +8,7 @@
 ## Runtime compatibility
 
 `main` uses OpenTelemetry 1.65.0 and requires the Ballerina runtime
-`2201.14.0-SNAPSHOT` configured in `gradle.properties`.
+`2201.14.0-20260911-112100-0f421c6f` configured in `gradle.properties`.
 The Gradle build downloads and uses that distribution. Applications using this
 extension must also use a compatible runtime: the standard 2201.13.4 distribution
 contains the older OpenTelemetry API/context and is supported by `version-0.9.0`.
