@@ -26,7 +26,7 @@ is recognized but not yet supported.
   pinned to `0.9.x` need an explicit upgrade to `1.0.0`; version ranges and lockfiles
   do not automatically cross this major-version boundary.
 
-The distribution consumes the `org.ballerinalang:otel-extension-ballerina:1.0.0`
+The distribution consumes the `io.ballerina.stdlib:otel-extension-ballerina:1.0.0`
 Maven ZIP. For local distribution builds, publish it to Maven local:
 
 ```sh
