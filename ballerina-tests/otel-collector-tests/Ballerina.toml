@@ -2,13 +2,18 @@
 org = "ballerinax"
 name = "otel_collector_tests"
 version = "0.1.0"
-distribution = "2201.13.4"
+distribution = "2201.14.0"
 
 [build-options]
+# Pin dependency resolution to the versions in Dependencies.toml: the build
+# compiles against a distribution assembled by copyStdlibs from the stdlib
+# versions in gradle.properties, so letting bal resolve to the latest on
+# Central would drift out of sync with the merged balas.
+sticky = true
 observabilityIncluded = true
 
 [[dependency]]
 org = "ballerina"
 name = "otel"
 repository = "local"
-version = "0.9.0"
+version = "1.0.0"

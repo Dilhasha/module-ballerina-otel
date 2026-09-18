@@ -15,16 +15,16 @@ traces and metrics to an OpenTelemetry Collector via OTLP, over gRPC or HTTP.
 
 **Key packaging gotcha (state this up front):**
 `opentelemetry-api` and `opentelemetry-context` are *intentionally NOT bundled* — ballerina-rt
-shades both and its copies always win classloading (`ballerina/Ballerina.toml:57-62`).
+shades both and its copies always win classloading (`ballerina/Ballerina.toml:64-69`).
 Consequence: the module relies on the runtime's shaded `opentelemetry-api` being compatible
-with the bundled exporters. The OTel stack is pinned to **1.32.0** (`gradle.properties`), which
-the shaded `opentelemetry-api` in the stock GA `2201.13.4` runtime already satisfies — so
-`distribution` in `Ballerina.toml:22` stays at `2201.13.4` with no timestamped-build or
-release-gate bump required.
+with the bundled exporters. The OTel stack is pinned to **1.65.0** (`gradle.properties`)
+and uses the updated API/context in runtime `2201.14.0-SNAPSHOT`.
+The stock GA `2201.13.4` runtime is supported by the older `version-0.9.0` branch.
+The build and integration tests use the distribution configured in `gradle.properties`.
 
-Also note: `kotlin-stdlib` is bundled as a ProGuard-shrunk "slim" jar
-(1.7 MB → ~284 KB), keeping only classes reachable from okhttp/okio
-(`ballerina/Ballerina.toml:100-106`).
+Also note: `kotlin-stdlib` is bundled as a ProGuard-shrunk "slim" jar,
+keeping only classes reachable from okhttp/okio. Both the original and slim
+variants run through the functional export suite before packaging.
 
 ---
 
