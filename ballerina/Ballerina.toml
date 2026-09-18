@@ -32,10 +32,10 @@ sticky = true
 graalvmCompatible = true
 
 [[platform.java21.dependency]]
-path = "../native/build/libs/otel-extension-native-1.0.0.jar"
+path = "../native/build/libs/otel-extension-native-1.0.0-SNAPSHOT.jar"
 groupId = "ballerina"
 artifactId = "otel-extension-native"
-version = "1.0.0"
+version = "1.0.0-SNAPSHOT"
 
 [[platform.java21.dependency]]
 path = "./lib/opentelemetry-sdk-trace-1.65.0.jar"
