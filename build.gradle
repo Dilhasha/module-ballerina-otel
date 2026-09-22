@@ -83,6 +83,11 @@ subprojects {
     apply plugin: 'checkstyle'
     apply plugin: 'com.github.spotbugs'
 
+    java {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+    }
+
     checkstyle {
         toolVersion '10.12.1'
     }

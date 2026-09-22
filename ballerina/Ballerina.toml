@@ -28,28 +28,28 @@ distribution = "2201.14.0"
 # Central would drift out of sync with the merged balas.
 sticky = true
 
-[platform.java21]
+[platform.java25]
 graalvmCompatible = true
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "../native/build/libs/otel-extension-native-1.0.0-SNAPSHOT.jar"
 groupId = "ballerina"
 artifactId = "otel-extension-native"
 version = "1.0.0-SNAPSHOT"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-sdk-trace-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-trace"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-sdk-metrics-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-metrics"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-sdk-common-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-common"
@@ -62,37 +62,37 @@ version = "1.65.0"
 # not needed: the only used constant (service.name) is inlined in the native
 # code.
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-exporter-otlp-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-exporter-otlp"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-exporter-otlp-common-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-exporter-otlp-common"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-exporter-common-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-exporter-common"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/opentelemetry-exporter-sender-okhttp-1.65.0.jar"
 groupId = "io.opentelemetry"
 artifactId = "opentelemetry-exporter-sender-okhttp"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/okhttp-jvm-5.4.0.jar"
 groupId = "com.squareup.okhttp3"
 artifactId = "okhttp-jvm"
 version = "5.4.0"
 
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/okio-jvm-3.17.0.jar"
 groupId = "com.squareup.okio"
 artifactId = "okio-jvm"
@@ -100,7 +100,7 @@ version = "3.17.0"
 
 # kotlin-stdlib is bundled as a ProGuard-shrunk jar (see the size-reduction-test
 # subproject): only the classes reachable from okhttp/okio are kept.
-[[platform.java21.dependency]]
+[[platform.java25.dependency]]
 path = "./lib/kotlin-stdlib-2.2.21-slim.jar"
 groupId = "org.jetbrains.kotlin"
 artifactId = "kotlin-stdlib"
