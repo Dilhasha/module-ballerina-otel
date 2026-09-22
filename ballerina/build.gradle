@@ -111,14 +111,13 @@ dependencies {
     ballerinaStdLibs "io.ballerina.stdlib:url-ballerina:${stdlibUrlVersion}"
     ballerinaStdLibs "io.ballerina.stdlib:uuid-ballerina:${stdlibUuidVersion}"
 
-    // NOTE: opentelemetry-api and opentelemetry-context are NOT packed:
-    // ballerina-rt shades both artifacts and its copies always win classloading.
+    // NOTE: opentelemetry-api, opentelemetry-context, and opentelemetry-common are NOT packed:
+    // ballerina-rt shades these artifacts and its copies always win classloading.
     // opentelemetry-sdk-logs is NOT packed: only the (unused) OTLP log exporter
     // classes reference it, so it is never loaded at runtime.
     externalJars "io.opentelemetry:opentelemetry-sdk-trace:${openTelemetryVersion}"
     externalJars "io.opentelemetry:opentelemetry-sdk-metrics:${openTelemetryVersion}"
     externalJars "io.opentelemetry:opentelemetry-sdk-common:${openTelemetryVersion}"
-    externalJars "io.opentelemetry:opentelemetry-common:${openTelemetryVersion}"
     externalJars "io.opentelemetry:opentelemetry-exporter-otlp:${openTelemetryExporterVersion}"
     externalJars "io.opentelemetry:opentelemetry-exporter-otlp-common:${openTelemetryExporterVersion}"
     externalJars "io.opentelemetry:opentelemetry-exporter-common:${openTelemetryExporterVersion}"
