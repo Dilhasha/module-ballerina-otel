@@ -55,14 +55,8 @@ groupId = "io.opentelemetry"
 artifactId = "opentelemetry-sdk-common"
 version = "1.65.0"
 
-[[platform.java21.dependency]]
-path = "./lib/opentelemetry-common-1.65.0.jar"
-groupId = "io.opentelemetry"
-artifactId = "opentelemetry-common"
-version = "1.65.0"
-
-# NOTE: opentelemetry-api and opentelemetry-context are intentionally not
-# packed: ballerina-rt shades both artifacts and its copies always win
+# NOTE: opentelemetry-api, opentelemetry-context, and opentelemetry-common are
+# intentionally not packed: ballerina-rt shades these artifacts and its copies always win
 # classloading. opentelemetry-sdk-logs is intentionally not packed: only the
 # (unused) OTLP log exporter classes reference it. opentelemetry-semconv is
 # not needed: the only used constant (service.name) is inlined in the native
